@@ -384,33 +384,39 @@ export default function Home() {
                 />
               </div>
               {isCredit && (
-                <FormField
-                  control={form.control}
-                  name="customerName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Customer Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Customer name..."
-                          {...field}
-                          onChange={(e) => {
-                            field.onChange(e);
-                            setCustomerSearch(e.target.value);
-                          }}
-                          list="customer-suggestions"
-                          data-testid="input-customer-name"
-                        />
-                      </FormControl>
-                      <datalist id="customer-suggestions">
-                        {customers?.map((c) => (
-                          <option key={c.id} value={c.name} />
-                        ))}
-                      </datalist>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <>
+                  <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                    <Handshake className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                    <span>Yeh entry automatically Credits page mein bhi save hogi customer ke naam se.</span>
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="customerName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Customer Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Customer ka naam likhein..."
+                            {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              setCustomerSearch(e.target.value);
+                            }}
+                            list="customer-suggestions"
+                            data-testid="input-customer-name"
+                          />
+                        </FormControl>
+                        <datalist id="customer-suggestions">
+                          {customers?.map((c) => (
+                            <option key={c.id} value={c.name} />
+                          ))}
+                        </datalist>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
               )}
               <Button
                 type="submit"

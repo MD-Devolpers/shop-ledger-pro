@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, isNull, isNotNull, desc } from "drizzle-orm";
-import { db, entriesTable } from "@workspace/db";
+import { db, entriesTable, creditsTable } from "@workspace/db";
 import {
   CreateEntryBody,
   UpdateEntryBody,
@@ -103,6 +103,21 @@ router.post("/entries", requireAuth, async (req, res): Promise<void> => {
       entryDate: entryDate ? new Date(entryDate) : new Date(),
     })
     .returning();
+
+  // Auto-save to credits table when entry is marked as credit with a customer name
+  if (isCredit && customerName) {
+    // cash_in with credit = you gave goods on credit (customer owes you) → "given"
+    // cash_out with credit = you got something on credit (you owe supplier) → "received"
+    const creditType = type === "cash_in" ? "given" : "received";
+    await db.insert(creditsTable).values({
+      userId,
+      customerName,
+      amount: amount.toString(),
+      description: description ?? null,
+      type: creditType,
+      status: "pending",
+    });
+  }
 
   res.status(201).json(formatEntry(entry));
 });
