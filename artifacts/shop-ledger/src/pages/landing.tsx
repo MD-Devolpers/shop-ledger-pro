@@ -276,10 +276,14 @@ export default function Landing() {
           <div className="flex gap-5">
             <Link href="/login"><span className="hover:text-foreground cursor-pointer">Login</span></Link>
             <Link href="/signup"><span className="hover:text-foreground cursor-pointer">Sign Up</span></Link>
+            <a href="mailto:Ledger.Entries@gmail.com" className="hover:text-foreground">Support</a>
           </div>
           <div className="text-center sm:text-right">
             <p>© {new Date().getFullYear()} LedgerEntries. All rights reserved.</p>
             <p className="text-xs mt-0.5">Designed by <span className="font-medium text-foreground">Mobile Doctor Developers</span></p>
+            <a href="mailto:Ledger.Entries@gmail.com" className="text-xs text-primary hover:underline mt-0.5 block">
+              Ledger.Entries@gmail.com
+            </a>
           </div>
         </div>
       </footer>

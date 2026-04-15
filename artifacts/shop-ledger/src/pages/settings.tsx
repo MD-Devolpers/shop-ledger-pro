@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
-import { Globe, LogOut, User, Shield, ShieldCheck, CheckCircle2, XCircle, Crown } from "lucide-react";
+import { Globe, LogOut, User, Shield, ShieldCheck, CheckCircle2, XCircle, Crown, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -126,6 +126,35 @@ export default function Settings() {
           <CardContent>
             <p className="text-sm text-muted-foreground">
               Your data is secured with encrypted sessions. To change your password, use the forgot password feature on the login page.
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Contact Support */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                <Mail className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle>Contact Support</CardTitle>
+                <CardDescription>Need help? Reach out to us</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <a
+              href="mailto:Ledger.Entries@gmail.com"
+              className="flex items-center justify-between py-2 group"
+            >
+              <span className="text-sm text-muted-foreground">Email</span>
+              <span className="text-sm font-semibold text-primary group-hover:underline">
+                Ledger.Entries@gmail.com
+              </span>
+            </a>
+            <p className="text-xs text-muted-foreground mt-2">
+              We typically respond within 24 hours.
             </p>
           </CardContent>
         </Card>
