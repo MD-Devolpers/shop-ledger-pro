@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
 import { Loader2, Mail, RefreshCw, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 export function AuthRoute({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const { data: user, isLoading, isError, refetch } = useGetMe({ query: { retry: false } });
+  const { data: user, isLoading, isError } = useGetMe({ query: { retry: false } });
   const logout = useLogout();
 
   useEffect(() => {
@@ -27,14 +27,19 @@ export function AuthRoute({ children }: { children: React.ReactNode }) {
 
   if (isError || !user) return null;
 
-  // Email verification gate — block access if user has email but it's not verified
-  const hasEmail = !!(user as any).email;
+  // Block ALL unverified users — email verification is compulsory
   const isVerified = !!(user as any).emailVerified;
 
-  if (hasEmail && !isVerified) {
+  if (!isVerified) {
+    const userEmail = (user as any).email;
+
     const handleResend = async () => {
-      await fetch("/api/auth/resend-verification", { method: "POST" });
-      alert("Verification email resent! Please check your inbox.");
+      const res = await fetch("/api/auth/resend-verification", { method: "POST" });
+      if (res.ok) {
+        alert("Verification email resent! Please check your inbox and spam folder.");
+      } else {
+        alert("Failed to resend. Please try again.");
+      }
     };
 
     const handleLogout = () => {
@@ -62,17 +67,19 @@ export function AuthRoute({ children }: { children: React.ReactNode }) {
               <Mail className="h-8 w-8 text-amber-600" />
             </div>
             <div>
-              <h2 className="text-lg font-bold">Verify Your Email</h2>
+              <h2 className="text-lg font-bold">Email Verification Required</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                We sent a verification link to:
+                A verification link was sent to:
               </p>
               <p className="font-semibold text-primary mt-1 text-sm break-all">
-                {(user as any).email}
+                {userEmail || "your email address"}
               </p>
             </div>
 
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-700 text-left">
-              Email verify karna zaruri hai app use karne ke liye. Inbox check karein, Spam folder bhi dekhen.
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-700 text-left space-y-1">
+              <p className="font-semibold">Inbox check karein:</p>
+              <p>• Gmail inbox ya Spam/Junk folder mein dekhen</p>
+              <p>• Link 24 ghante tak valid hai</p>
             </div>
 
             <Button className="w-full gap-2" onClick={handleResend}>
@@ -84,9 +91,16 @@ export function AuthRoute({ children }: { children: React.ReactNode }) {
               onClick={handleLogout}
               className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mx-auto"
             >
-              <LogOut className="h-3 w-3" /> Sign out
+              <LogOut className="h-3 w-3" /> Sign out and use different account
             </button>
           </div>
+
+          <p className="text-center text-xs text-muted-foreground mt-4">
+            Need help?{" "}
+            <a href="mailto:Ledger.Entries@gmail.com" className="text-primary hover:underline">
+              Contact support
+            </a>
+          </p>
         </div>
       </div>
     );

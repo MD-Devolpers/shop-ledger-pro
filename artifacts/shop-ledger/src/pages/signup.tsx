@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useSignup, useGetMe } from "@workspace/api-client-react";
-import { Loader2, Mail, CheckCircle2 } from "lucide-react";
+import { Loader2, Mail, CheckCircle2, BookOpen, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,9 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 
 const signupSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters").max(50, "Username is too long"),
-  email: z.string().email("Invalid email address").optional().or(z.literal("")),
+  email: z.string().min(1, "Email is required").email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string()
+  confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -30,19 +30,12 @@ export default function Signup() {
 
   const form = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),
-    defaultValues: {
-      username: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
+    defaultValues: { username: "", email: "", password: "", confirmPassword: "" },
   });
 
   useEffect(() => {
     document.title = "Sign Up - LedgerEntries";
-    if (user) {
-      setLocation("/app");
-    }
+    if (user) setLocation("/app");
   }, [user, setLocation]);
 
   if (isUserLoading) {
@@ -55,24 +48,11 @@ export default function Signup() {
 
   const onSubmit = (data: z.infer<typeof signupSchema>) => {
     signupMutation.mutate(
-      { 
-        data: {
-          username: data.username,
-          password: data.password,
-          email: data.email || undefined,
-        } 
-      },
+      { data: { username: data.username, password: data.password, email: data.email } },
       {
-        onSuccess: (response: any) => {
-          if (data.email && response?.emailSent) {
-            setEmailSentTo(data.email);
-          } else {
-            toast({
-              title: "Account created!",
-              description: "Welcome to LedgerEntries.",
-            });
-            setLocation("/app");
-          }
+        onSuccess: () => {
+          // Always show "check your email" screen — email is compulsory
+          setEmailSentTo(data.email);
         },
         onError: (error) => {
           toast({
@@ -85,12 +65,19 @@ export default function Signup() {
     );
   };
 
-  // Show "verification email sent" screen
+  // ── Email sent confirmation screen ──────────────────────────────────────
   if (emailSentTo) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
         <div className="w-full max-w-sm">
-          <Card className="border-0 shadow-xl text-center p-8">
+          <div className="text-center mb-5">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg mb-3">
+              <BookOpen className="h-7 w-7 text-primary-foreground" />
+            </div>
+            <h1 className="text-xl font-bold">LedgerEntries</h1>
+          </div>
+
+          <Card className="border-0 shadow-xl text-center p-6">
             <div className="flex flex-col items-center gap-4">
               <div className="rounded-full bg-green-100 p-4">
                 <Mail className="h-10 w-10 text-green-600" />
@@ -100,27 +87,31 @@ export default function Signup() {
                 <p className="text-sm text-muted-foreground mt-2">
                   We sent a verification link to:
                 </p>
-                <p className="font-semibold text-primary mt-1">{emailSentTo}</p>
+                <p className="font-semibold text-primary mt-1 break-all">{emailSentTo}</p>
               </div>
-              <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-xs text-green-700 text-left w-full">
-                <CheckCircle2 className="h-3.5 w-3.5 inline mr-1" />
-                Account created! Email verify karo taakay account fully activate ho jaye.
+              <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-xs text-green-800 text-left w-full space-y-1">
+                <p className="flex items-center gap-1 font-semibold">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Account created!
+                </p>
+                <p>Email verify karo taakay dashboard access ho sake.</p>
+                <p>Spam/Junk folder bhi zaroor dekhen.</p>
               </div>
-              <Button className="w-full" onClick={() => setLocation("/app")}>
-                Continue to Dashboard
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={async () => {
+                  const res = await fetch("/api/auth/resend-verification", { method: "POST" });
+                  if (res.ok) alert("Verification email resent! Please check your inbox.");
+                  else alert("Please try again in a moment.");
+                }}
+              >
+                Resend Email
               </Button>
-              <p className="text-xs text-muted-foreground">
-                Email nahi aayi?{" "}
-                <button
-                  className="text-primary underline"
-                  onClick={async () => {
-                    const res = await fetch("/api/auth/resend-verification", { method: "POST" });
-                    if (res.ok) alert("Verification email resent!");
-                  }}
-                >
-                  Dobara bhejo
-                </button>
-              </p>
+              <Link href="/login">
+                <span className="text-xs text-muted-foreground hover:text-primary cursor-pointer underline">
+                  Already verified? Sign in
+                </span>
+              </Link>
             </div>
           </Card>
         </div>
@@ -128,14 +119,16 @@ export default function Signup() {
     );
   }
 
+  // ── Signup form ──────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4 py-8">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary shadow-sm mb-4">
-            <span className="text-2xl font-bold text-primary-foreground">L</span>
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg mb-3">
+            <BookOpen className="h-7 w-7 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Create an Account</h1>
+          <h1 className="text-2xl font-bold tracking-tight">LedgerEntries</h1>
+          <p className="text-sm text-muted-foreground mt-1">Create your account to get started</p>
         </div>
 
         <Card className="border-0 shadow-xl bg-card/50 backdrop-blur-sm sm:border sm:bg-card">
@@ -164,11 +157,17 @@ export default function Signup() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email (Optional)</FormLabel>
+                      <FormLabel className="flex items-center gap-1.5">
+                        Email
+                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-normal">Required</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="owner@shop.com" {...field} data-testid="input-signup-email" />
+                        <Input type="email" placeholder="owner@example.com" {...field} data-testid="input-signup-email" />
                       </FormControl>
-                      <p className="text-xs text-muted-foreground mt-1">Used for password resets</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <ShieldCheck className="h-3 w-3 text-primary flex-shrink-0" />
+                        <p className="text-xs text-muted-foreground">Required for account verification and password recovery</p>
+                      </div>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -199,14 +198,16 @@ export default function Signup() {
                     </FormItem>
                   )}
                 />
-                <Button 
-                  type="submit" 
-                  className="w-full mt-6" 
+                <Button
+                  type="submit"
+                  className="w-full mt-6 gap-2"
                   disabled={signupMutation.isPending}
                   data-testid="button-submit-signup"
                 >
-                  {signupMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Account
+                  {signupMutation.isPending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Mail className="h-4 w-4" />}
+                  Create Account & Send Verification
                 </Button>
               </form>
             </Form>

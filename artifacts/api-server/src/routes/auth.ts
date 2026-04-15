@@ -28,6 +28,12 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
 
   const { username, password, email, language } = parsed.data;
 
+  // Email is compulsory — all accounts must verify
+  if (!email) {
+    res.status(400).json({ error: "Email is required. Email verification is compulsory." });
+    return;
+  }
+
   const existing = await db
     .select()
     .from(usersTable)
