@@ -13,7 +13,7 @@ export default function VerifyEmail() {
   const [resending, setResending] = useState(false);
 
   useEffect(() => {
-    document.title = "Verify Email - Daily Shop Ledger";
+    document.title = "Verify Email - LedgerEntries";
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
 
@@ -112,7 +112,7 @@ export default function VerifyEmail() {
             {status === "success" && (
               <>
                 <p className="text-muted-foreground text-sm">
-                  Your email has been verified successfully. You can now use all features of Daily Shop Ledger.
+                  Your email has been verified successfully. You can now use all features of LedgerEntries.
                 </p>
                 <Button className="w-full" onClick={() => setLocation("/")}>
                   Go to Dashboard

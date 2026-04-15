@@ -64,7 +64,7 @@ export default function Home() {
   const deleteEntry = useDeleteEntry();
 
   useEffect(() => {
-    document.title = "Dashboard - Daily Shop Ledger";
+    document.title = "Dashboard - LedgerEntries";
   }, []);
 
   const form = useForm<z.infer<typeof entrySchema>>({

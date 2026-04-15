@@ -39,9 +39,9 @@ export default function Signup() {
   });
 
   useEffect(() => {
-    document.title = "Sign Up - Daily Shop Ledger";
+    document.title = "Sign Up - LedgerEntries";
     if (user) {
-      setLocation("/");
+      setLocation("/app");
     }
   }, [user, setLocation]);
 
@@ -69,9 +69,9 @@ export default function Signup() {
           } else {
             toast({
               title: "Account created!",
-              description: "Welcome to Daily Shop Ledger.",
+              description: "Welcome to LedgerEntries.",
             });
-            setLocation("/");
+            setLocation("/app");
           }
         },
         onError: (error) => {
@@ -106,7 +106,7 @@ export default function Signup() {
                 <CheckCircle2 className="h-3.5 w-3.5 inline mr-1" />
                 Account created! Email verify karo taakay account fully activate ho jaye.
               </div>
-              <Button className="w-full" onClick={() => setLocation("/")}>
+              <Button className="w-full" onClick={() => setLocation("/app")}>
                 Continue to Dashboard
               </Button>
               <p className="text-xs text-muted-foreground">

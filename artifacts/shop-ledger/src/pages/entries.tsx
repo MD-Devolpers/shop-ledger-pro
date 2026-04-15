@@ -164,7 +164,7 @@ export default function Entries() {
   const [editEntry, setEditEntry] = useState<number | null>(null);
 
   useEffect(() => {
-    document.title = "Entries - Daily Shop Ledger";
+    document.title = "Entries - LedgerEntries";
   }, []);
 
   const queryParams =

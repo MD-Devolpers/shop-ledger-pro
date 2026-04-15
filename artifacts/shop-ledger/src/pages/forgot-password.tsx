@@ -21,7 +21,7 @@ export default function ForgotPassword() {
   const mutation = useForgotPassword();
 
   useEffect(() => {
-    document.title = "Reset Password - Daily Shop Ledger";
+    document.title = "Reset Password - LedgerEntries";
   }, []);
 
   const form = useForm<z.infer<typeof schema>>({

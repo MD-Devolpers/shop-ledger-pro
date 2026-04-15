@@ -171,7 +171,7 @@ export default function Credits() {
   const [customerSearch, setCustomerSearch] = useState("");
 
   useEffect(() => {
-    document.title = "Credits - Daily Shop Ledger";
+    document.title = "Credits - LedgerEntries";
   }, []);
 
   const { data: credits, isLoading } = useListCredits();

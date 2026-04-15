@@ -25,7 +25,7 @@ export default function ResetPassword() {
   const mutation = useResetPassword();
 
   useEffect(() => {
-    document.title = "Reset Password - Daily Shop Ledger";
+    document.title = "Reset Password - LedgerEntries";
   }, []);
 
   const token = new URLSearchParams(window.location.search).get("token") || "";

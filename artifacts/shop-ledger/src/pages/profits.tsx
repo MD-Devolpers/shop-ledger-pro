@@ -84,7 +84,7 @@ export default function Profits() {
   const { toast } = useToast();
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
 
-  useEffect(() => { document.title = "Profit Tracker - Daily Shop Ledger"; }, []);
+  useEffect(() => { document.title = "Profit Tracker - LedgerEntries"; }, []);
 
   const { data: report, isLoading } = useGetProfitReport(
     { period },

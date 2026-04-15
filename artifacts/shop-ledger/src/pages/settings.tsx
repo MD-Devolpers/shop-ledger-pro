@@ -15,7 +15,7 @@ export default function Settings() {
   const { data: user } = useGetMe();
   const logout = useLogout();
 
-  useEffect(() => { document.title = "Settings - Daily Shop Ledger"; }, []);
+  useEffect(() => { document.title = "Settings - LedgerEntries"; }, []);
 
   const handleLogout = () => {
     logout.mutate(undefined, {

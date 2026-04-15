@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { AuthRoute } from "@/components/auth-route";
+import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import Signup from "@/pages/signup";
@@ -39,13 +40,17 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
+      {/* Public routes */}
+      <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={Signup} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/verify-email" component={VerifyEmail} />
+      {/* Admin — standalone (no layout) */}
       <Route path="/admin" component={Admin} />
-      <Route path="/">
+      {/* Protected app routes */}
+      <Route path="/app">
         <ProtectedLayout><Home /></ProtectedLayout>
       </Route>
       <Route path="/entries">

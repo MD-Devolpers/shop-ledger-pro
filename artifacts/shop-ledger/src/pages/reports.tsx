@@ -22,7 +22,7 @@ export default function Reports() {
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
 
   useEffect(() => {
-    document.title = "Reports - Daily Shop Ledger";
+    document.title = "Reports - LedgerEntries";
   }, []);
 
   const { data: report, isLoading } = useGetEntriesReport(

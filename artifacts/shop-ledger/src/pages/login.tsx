@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useLogin, useGetMe } from "@workspace/api-client-react";
-import { Loader2 } from "lucide-react";
+import { Loader2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,9 +31,9 @@ export default function Login() {
   });
 
   useEffect(() => {
-    document.title = "Login - Daily Shop Ledger";
+    document.title = "Login - LedgerEntries";
     if (user) {
-      setLocation("/");
+      setLocation("/app");
     }
   }, [user, setLocation]);
 
@@ -54,7 +54,7 @@ export default function Login() {
             title: "Welcome back!",
             description: "Successfully logged in.",
           });
-          setLocation("/");
+          setLocation("/app");
         },
         onError: (error) => {
           toast({
@@ -71,11 +71,11 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-xl bg-primary shadow-sm mb-4">
-            <span className="text-3xl font-bold text-primary-foreground">L</span>
+          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg mb-3">
+            <BookOpen className="h-7 w-7 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Shop Ledger</h1>
-          <p className="text-muted-foreground mt-2">Manage your daily accounts</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">LedgerEntries</h1>
+          <p className="text-muted-foreground mt-1 text-sm">Sign in to manage your daily hisaab</p>
         </div>
 
         <Card className="border-0 shadow-xl bg-card/50 backdrop-blur-sm sm:border sm:bg-card">

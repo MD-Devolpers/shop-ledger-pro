@@ -12,7 +12,7 @@ export default function Backup() {
   const { data: backupData, refetch, isFetching } = useExportBackup({ query: { enabled: false } });
 
   useEffect(() => {
-    document.title = "Backup - Daily Shop Ledger";
+    document.title = "Backup - LedgerEntries";
     const saved = localStorage.getItem("lastBackupDate");
     if (saved) setLastBackup(saved);
   }, []);
