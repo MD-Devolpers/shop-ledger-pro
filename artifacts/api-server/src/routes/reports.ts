@@ -60,11 +60,23 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
   let totalCashIn = 0;
   let totalCashOut = 0;
   let totalProfit = 0;
+  let totalCreditGiven = 0;
+  let totalCreditReceived = 0;
 
   for (const entry of userEntries) {
     const amount = parseFloat(entry.amount);
     const profit = entry.profit ? parseFloat(entry.profit) : 0;
     totalProfit += profit;
+
+    // Credit entries do NOT count toward cash/digital balance
+    if (entry.isCredit) {
+      if (entry.type === "cash_in") {
+        totalCreditGiven += amount; // someone owes you
+      } else {
+        totalCreditReceived += amount; // you owe someone
+      }
+      continue;
+    }
 
     if (entry.paymentMethod === "cash") {
       if (entry.type === "cash_in") {
@@ -85,12 +97,15 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
+  // Also sum pending credits from the credits table
   const credits = await db
     .select({ totalAmount: sum(creditsTable.amount) })
     .from(creditsTable)
     .where(and(eq(creditsTable.userId, userId), eq(creditsTable.status, "pending")));
 
   const totalCredit = parseFloat(credits[0]?.totalAmount ?? "0");
+  // Net credit balance: money owed to you minus money you owe
+  const creditBalance = totalCreditGiven - totalCreditReceived;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -110,6 +125,9 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
     totalCashOut: Math.round(totalCashOut * 100) / 100,
     totalProfit: Math.round(totalProfit * 100) / 100,
     totalCredit: Math.round(totalCredit * 100) / 100,
+    creditBalance: Math.round(creditBalance * 100) / 100,
+    totalCreditGiven: Math.round(totalCreditGiven * 100) / 100,
+    totalCreditReceived: Math.round(totalCreditReceived * 100) / 100,
     todayEntries: todayCount,
   });
 });

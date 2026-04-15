@@ -858,6 +858,12 @@ components:
           type: number
         totalCredit:
           type: number
+        creditBalance:
+          type: number
+        totalCreditGiven:
+          type: number
+        totalCreditReceived:
+          type: number
         todayEntries:
           type: integer
       required:
@@ -868,6 +874,9 @@ components:
         - totalCashOut
         - totalProfit
         - totalCredit
+        - creditBalance
+        - totalCreditGiven
+        - totalCreditReceived
         - todayEntries
 
     EntriesReport:

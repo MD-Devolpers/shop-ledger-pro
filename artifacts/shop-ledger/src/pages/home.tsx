@@ -12,7 +12,7 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, TrendingUp, TrendingDown, Wallet, CreditCard, Loader2, Trash2, Pencil } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Wallet, CreditCard, Loader2, Trash2, Pencil, Handshake } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -125,8 +125,8 @@ export default function Home() {
   return (
     <div className="flex flex-col h-full">
       {/* Balance Summary */}
-      <div className="bg-primary text-primary-foreground p-6 pb-8">
-        <p className="text-sm font-medium opacity-80">Total Balance</p>
+      <div className="bg-primary text-primary-foreground p-5 pb-8">
+        <p className="text-sm font-medium opacity-80">Total Balance (Cash + Digital)</p>
         {summaryLoading ? (
           <div className="h-10 w-40 bg-primary-foreground/20 rounded animate-pulse mt-1" />
         ) : (
@@ -134,24 +134,33 @@ export default function Home() {
             {formatCurrency(summary?.totalBalance ?? 0)}
           </h2>
         )}
-        <div className="flex gap-4 mt-4">
-          <div className="flex items-center gap-2 bg-primary-foreground/10 rounded-lg px-3 py-2 flex-1">
-            <Wallet className="h-4 w-4 opacity-70" />
-            <div>
-              <p className="text-xs opacity-70">Cash</p>
-              <p className="text-sm font-semibold" data-testid="cash-balance">
-                {formatCurrency(summary?.cashBalance ?? 0)}
-              </p>
+        <div className="grid grid-cols-3 gap-2 mt-4">
+          <div className="flex flex-col gap-1 bg-primary-foreground/10 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-1.5">
+              <Wallet className="h-3.5 w-3.5 opacity-70" />
+              <p className="text-[11px] opacity-70">Cash</p>
             </div>
+            <p className="text-sm font-bold" data-testid="cash-balance">
+              {formatCurrency(summary?.cashBalance ?? 0)}
+            </p>
           </div>
-          <div className="flex items-center gap-2 bg-primary-foreground/10 rounded-lg px-3 py-2 flex-1">
-            <CreditCard className="h-4 w-4 opacity-70" />
-            <div>
-              <p className="text-xs opacity-70">Digital</p>
-              <p className="text-sm font-semibold" data-testid="digital-balance">
-                {formatCurrency(summary?.digitalBalance ?? 0)}
-              </p>
+          <div className="flex flex-col gap-1 bg-primary-foreground/10 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-1.5">
+              <CreditCard className="h-3.5 w-3.5 opacity-70" />
+              <p className="text-[11px] opacity-70">Digital</p>
             </div>
+            <p className="text-sm font-bold" data-testid="digital-balance">
+              {formatCurrency(summary?.digitalBalance ?? 0)}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1 bg-amber-400/30 border border-amber-300/30 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-1.5">
+              <Handshake className="h-3.5 w-3.5 opacity-80" />
+              <p className="text-[11px] opacity-80">Credit</p>
+            </div>
+            <p className="text-sm font-bold" data-testid="credit-balance">
+              {formatCurrency(summary?.creditBalance ?? 0)}
+            </p>
           </div>
         </div>
       </div>

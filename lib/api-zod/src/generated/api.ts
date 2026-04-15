@@ -347,6 +347,9 @@ export const GetReportSummaryResponse = zod.object({
   totalCashOut: zod.number(),
   totalProfit: zod.number(),
   totalCredit: zod.number(),
+  creditBalance: zod.number(),
+  totalCreditGiven: zod.number(),
+  totalCreditReceived: zod.number(),
   todayEntries: zod.number(),
 });
 

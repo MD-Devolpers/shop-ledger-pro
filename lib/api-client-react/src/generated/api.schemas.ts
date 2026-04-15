@@ -229,6 +229,9 @@ export interface BalanceSummary {
   totalCashOut: number;
   totalProfit: number;
   totalCredit: number;
+  creditBalance: number;
+  totalCreditGiven: number;
+  totalCreditReceived: number;
   todayEntries: number;
 }
 
