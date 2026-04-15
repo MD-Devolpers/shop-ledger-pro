@@ -154,6 +154,16 @@ export default function Settings() {
           <LogOut className="mr-2 h-5 w-5" />
           Logout
         </Button>
+
+        {/* About / Credit */}
+        <div className="text-center py-4 space-y-1">
+          <p className="text-xs text-muted-foreground font-medium">LedgerEntries — ledgerentries.com</p>
+          <p className="text-xs text-muted-foreground">
+            Designed by{" "}
+            <span className="font-semibold text-foreground">Mobile Doctor Developers</span>
+          </p>
+          <p className="text-[10px] text-muted-foreground/60">© {new Date().getFullYear()} All rights reserved</p>
+        </div>
       </div>
     </div>
   );

@@ -277,7 +277,10 @@ export default function Landing() {
             <Link href="/login"><span className="hover:text-foreground cursor-pointer">Login</span></Link>
             <Link href="/signup"><span className="hover:text-foreground cursor-pointer">Sign Up</span></Link>
           </div>
-          <p>© {new Date().getFullYear()} LedgerEntries. All rights reserved.</p>
+          <div className="text-center sm:text-right">
+            <p>© {new Date().getFullYear()} LedgerEntries. All rights reserved.</p>
+            <p className="text-xs mt-0.5">Designed by <span className="font-medium text-foreground">Mobile Doctor Developers</span></p>
+          </div>
         </div>
       </footer>
     </div>
