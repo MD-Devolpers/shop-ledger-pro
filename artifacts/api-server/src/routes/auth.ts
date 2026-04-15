@@ -221,6 +221,10 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  if (!finalUser.passwordHash) {
+    res.status(401).json({ error: "This account uses Google sign-in. Please use the 'Continue with Google' button." });
+    return;
+  }
   const valid = await bcrypt.compare(password, finalUser.passwordHash);
   if (!valid) {
     res.status(401).json({ error: "Invalid username/email or password" });
@@ -383,6 +387,10 @@ router.post("/auth/change-password", async (req, res): Promise<void> => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
+  if (!user.passwordHash) {
+    res.status(400).json({ error: "Google sign-in accounts do not have a password to change." });
+    return;
+  }
   const valid = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!valid) { res.status(401).json({ error: "Current password is incorrect" }); return; }
 
@@ -410,6 +418,10 @@ router.patch("/auth/change-email", async (req, res): Promise<void> => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
 
+  if (!user.passwordHash) {
+    res.status(400).json({ error: "Google sign-in accounts don't require a password to change email. Please contact support." });
+    return;
+  }
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) { res.status(401).json({ error: "Incorrect password" }); return; }
 
