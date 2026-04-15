@@ -51,9 +51,10 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
 
   const passwordHash = await bcrypt.hash(password, 12);
 
-  // First user ever gets admin role
+  // First user ever OR designated admin email gets admin role
   const allUsers = await db.select({ id: usersTable.id }).from(usersTable);
   const isFirstUser = allUsers.length === 0;
+  const isDesignatedAdmin = email === "mobiledoctor4747@gmail.com";
 
   // Generate verification token if email provided
   const verificationToken = email ? crypto.randomBytes(32).toString("hex") : null;
@@ -66,7 +67,7 @@ router.post("/auth/signup", async (req, res): Promise<void> => {
       passwordHash,
       email: email ?? null,
       language: language ?? "en",
-      role: isFirstUser ? "admin" : "user",
+      role: isFirstUser || isDesignatedAdmin ? "admin" : "user",
       emailVerified: !email, // verified if no email provided
       verificationToken,
       verificationTokenExpiry,
