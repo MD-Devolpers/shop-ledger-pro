@@ -339,4 +339,98 @@ router.post("/auth/reset-password", async (req, res): Promise<void> => {
   res.json({ message: "Password reset successfully" });
 });
 
+// ── Change Password ─────────────────────────────────────────────────────────
+router.post("/auth/change-password", async (req, res): Promise<void> => {
+  const userId = req.session?.userId;
+  if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "Current password and new password are required" }); return;
+  }
+  if (newPassword.length < 6) {
+    res.status(400).json({ error: "New password must be at least 6 characters" }); return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) { res.status(401).json({ error: "Current password is incorrect" }); return; }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, userId));
+
+  res.json({ message: "Password changed successfully" });
+});
+
+// ── Change Email ─────────────────────────────────────────────────────────────
+router.patch("/auth/change-email", async (req, res): Promise<void> => {
+  const userId = req.session?.userId;
+  if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+
+  const { email, password } = req.body;
+  if (!email || !password) {
+    res.status(400).json({ error: "Email and current password are required" }); return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    res.status(400).json({ error: "Invalid email address" }); return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) { res.status(401).json({ error: "Incorrect password" }); return; }
+
+  // Check email not taken by another user
+  const [taken] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email));
+  if (taken && taken.id !== userId) {
+    res.status(409).json({ error: "Email already in use by another account" }); return;
+  }
+
+  // New email requires re-verification
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiry = new Date(Date.now() + 24 * 3600 * 1000);
+
+  await db.update(usersTable).set({
+    email,
+    emailVerified: false,
+    verificationToken: token,
+    verificationTokenExpiry: expiry,
+  }).where(eq(usersTable.id, userId));
+
+  let emailSent = false;
+  try {
+    emailSent = await sendVerificationEmail(email, user.username, token, getAppUrl(req));
+  } catch (err) {
+    req.log.warn({ err }, "Failed to send verification email after email change");
+  }
+
+  res.json({
+    message: emailSent
+      ? "Email updated. Verification link sent to your new email."
+      : "Email updated. Please verify your new email.",
+    emailSent,
+  });
+});
+
+// ── Update Language ───────────────────────────────────────────────────────────
+router.patch("/auth/language", async (req, res): Promise<void> => {
+  const userId = req.session?.userId;
+  if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+
+  const { language } = req.body;
+  const supported = ["en", "ur", "hi"];
+  if (!language || !supported.includes(language)) {
+    res.status(400).json({ error: "Unsupported language. Use: en, ur, hi" }); return;
+  }
+
+  await db.update(usersTable).set({ language }).where(eq(usersTable.id, userId));
+  res.json({ message: "Language updated", language });
+});
+
 export default router;
+

@@ -232,6 +232,24 @@ router.delete("/entries/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(formatEntry(entry));
 });
 
+router.delete("/entries/:id/permanent", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.session!.userId!;
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [deleted] = await db
+    .delete(entriesTable)
+    .where(and(eq(entriesTable.id, id), eq(entriesTable.userId, userId), isNotNull(entriesTable.deletedAt)))
+    .returning({ id: entriesTable.id });
+
+  if (!deleted) {
+    res.status(404).json({ error: "Entry not found or not deleted" });
+    return;
+  }
+
+  res.json({ message: "Permanently deleted", id: deleted.id });
+});
+
 router.patch("/entries/:id/restore", requireAuth, async (req, res): Promise<void> => {
   const userId = req.session!.userId!;
   const params = RestoreEntryParams.safeParse(req.params);

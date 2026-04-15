@@ -19,6 +19,7 @@ import Profits from "@/pages/profits";
 import Reports from "@/pages/reports";
 import Backup from "@/pages/backup";
 import Settings from "@/pages/settings";
+import RecycleBin from "@/pages/recycle-bin";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -70,6 +71,9 @@ function Router() {
       </Route>
       <Route path="/settings">
         <ProtectedLayout><Settings /></ProtectedLayout>
+      </Route>
+      <Route path="/recycle-bin">
+        <ProtectedLayout><RecycleBin /></ProtectedLayout>
       </Route>
       <Route component={NotFound} />
     </Switch>

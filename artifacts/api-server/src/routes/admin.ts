@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import crypto from "crypto";
 import { eq, count, isNotNull, desc } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import { entriesTable } from "@workspace/db";
@@ -168,4 +169,63 @@ router.delete("/admin/users/:id", requireAdmin, async (req, res): Promise<void> 
   res.json({ message: `User ${deleted.username} deleted`, id: deleted.id });
 });
 
+// Admin: Send password reset email to a user
+router.post("/admin/users/:id/reset-password", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!user.email) { res.status(400).json({ error: "User has no email address" }); return; }
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiry = new Date(Date.now() + 3600 * 1000);
+
+  await db.update(usersTable)
+    .set({ resetToken: token, resetTokenExpiry: expiry })
+    .where(eq(usersTable.id, id));
+
+  const appUrl = `${req.headers["x-forwarded-proto"] || req.protocol}://${req.headers["x-forwarded-host"] || req.headers.host}`;
+
+  let emailSent = false;
+  try {
+    const { sendPasswordResetEmail } = await import("../lib/mailer");
+    emailSent = await sendPasswordResetEmail(user.email, user.username, token, appUrl);
+  } catch (err) {}
+
+  res.json({ message: emailSent ? `Reset email sent to ${user.email}` : "Token generated (email not configured)", emailSent });
+});
+
+// Admin: Change a user's email
+router.patch("/admin/users/:id/email", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  const { email } = req.body;
+
+  if (!email) { res.status(400).json({ error: "Email is required" }); return; }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) { res.status(400).json({ error: "Invalid email" }); return; }
+
+  const [taken] = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, email));
+  if (taken && taken.id !== id) { res.status(409).json({ error: "Email already in use" }); return; }
+
+  const [updated] = await db.update(usersTable)
+    .set({ email, emailVerified: false, verificationToken: null, verificationTokenExpiry: null })
+    .where(eq(usersTable.id, id))
+    .returning({ id: usersTable.id, username: usersTable.username, email: usersTable.email });
+
+  if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+  res.json({ ...updated, message: "Email updated. User must re-verify." });
+});
+
+// Admin: Verify a user's email manually
+router.patch("/admin/users/:id/verify-email", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id);
+  const [updated] = await db.update(usersTable)
+    .set({ emailVerified: true, verificationToken: null, verificationTokenExpiry: null })
+    .where(eq(usersTable.id, id))
+    .returning({ id: usersTable.id, username: usersTable.username });
+
+  if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+  res.json({ ...updated, message: "Email manually verified" });
+});
+
 export default router;
+

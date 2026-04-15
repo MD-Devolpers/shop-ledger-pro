@@ -9,13 +9,18 @@ import {
   CheckCircle2,
   XCircle,
   TrendingUp,
-  FileText,
   RefreshCw,
   ArrowLeft,
   AlertTriangle,
   BookOpen,
   RotateCcw,
+  Mail,
+  KeyRound,
+  Pencil,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -76,6 +81,10 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [purging, setPurging] = useState(false);
+  const [expandedUser, setExpandedUser] = useState<number | null>(null);
+  const [editEmailId, setEditEmailId] = useState<number | null>(null);
+  const [editEmailValue, setEditEmailValue] = useState("");
+  const [editEmailLoading, setEditEmailLoading] = useState(false);
 
   useEffect(() => {
     document.title = "Admin Panel - LedgerEntries";
@@ -142,6 +151,63 @@ export default function Admin() {
         toast({ title: `${user.username} deleted` });
       } else {
         const d = await res.json();
+        toast({ title: "Error", description: d.error, variant: "destructive" });
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const sendResetEmail = async (user: AdminUser) => {
+    if (!user.email) {
+      toast({ title: "No email", description: "This user has no email address.", variant: "destructive" }); return;
+    }
+    setActionLoading(user.id);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/reset-password`, { method: "POST" });
+      const d = await res.json();
+      if (res.ok) {
+        toast({ title: "Reset email sent!", description: d.message });
+      } else {
+        toast({ title: "Error", description: d.error, variant: "destructive" });
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const editUserEmail = async (userId: number) => {
+    if (!editEmailValue) { toast({ title: "Email required", variant: "destructive" }); return; }
+    setEditEmailLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users/${userId}/email`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: editEmailValue }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, email: editEmailValue, emailVerified: false } : u));
+        toast({ title: "Email updated", description: d.message });
+        setEditEmailId(null);
+        setEditEmailValue("");
+      } else {
+        toast({ title: "Error", description: d.error, variant: "destructive" });
+      }
+    } finally {
+      setEditEmailLoading(false);
+    }
+  };
+
+  const verifyUserEmail = async (user: AdminUser) => {
+    setActionLoading(user.id);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/verify-email`, { method: "PATCH" });
+      const d = await res.json();
+      if (res.ok) {
+        setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, emailVerified: true } : u));
+        toast({ title: "Email verified", description: `${user.username}'s email is now verified.` });
+      } else {
         toast({ title: "Error", description: d.error, variant: "destructive" });
       }
     } finally {
@@ -240,73 +306,180 @@ export default function Admin() {
 
           {/* ── Users Tab ── */}
           <TabsContent value="users" className="space-y-2 mt-3">
-            {users.map((user) => (
-              <Card key={user.id} className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${
-                    user.role === "admin" ? "bg-amber-100 text-amber-700" : "bg-muted text-muted-foreground"
-                  }`}>
-                    {user.username[0].toUpperCase()}
-                  </div>
+            {users.map((user) => {
+              const isExpanded = expandedUser === user.id;
+              const isMe = user.id === (me as any)?.id;
+              return (
+              <Card key={user.id} className="overflow-hidden">
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${
+                      user.role === "admin" ? "bg-amber-100 text-amber-700" : "bg-muted text-muted-foreground"
+                    }`}>
+                      {user.username[0].toUpperCase()}
+                    </div>
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-sm">{user.username}</p>
-                      {user.role === "admin" && (
-                        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 border-0 gap-0.5">
-                          <Crown className="h-2.5 w-2.5" /> Admin
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-sm">{user.username}</p>
+                        {user.role === "admin" && (
+                          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 border-0 gap-0.5">
+                            <Crown className="h-2.5 w-2.5" /> Admin
+                          </Badge>
+                        )}
+                        <Badge className={`text-[10px] px-1.5 py-0 h-4 border-0 gap-0.5 ${
+                          user.emailVerified ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        }`}>
+                          {user.emailVerified ? <CheckCircle2 className="h-2.5 w-2.5" /> : <XCircle className="h-2.5 w-2.5" />}
+                          {user.emailVerified ? "Verified" : "Unverified"}
                         </Badge>
-                      )}
-                      <Badge className={`text-[10px] px-1.5 py-0 h-4 border-0 gap-0.5 ${
-                        user.emailVerified ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                      }`}>
-                        {user.emailVerified ? <CheckCircle2 className="h-2.5 w-2.5" /> : <XCircle className="h-2.5 w-2.5" />}
-                        {user.emailVerified ? "Verified" : "Unverified"}
-                      </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {user.email || "No email"} · Joined {formatDate(user.createdAt)}
+                      </p>
+                      <div className="flex gap-3 mt-1">
+                        <span className="text-xs text-muted-foreground">
+                          <strong className="text-foreground">{user.entryCount}</strong> entries
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          <strong className="text-foreground">{user.creditCount}</strong> credits
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {user.email || "No email"} · Joined {formatDate(user.createdAt)}
-                    </p>
-                    <div className="flex gap-3 mt-1">
-                      <span className="text-xs text-muted-foreground">
-                        <strong className="text-foreground">{user.entryCount}</strong> entries
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        <strong className="text-foreground">{user.creditCount}</strong> credits
-                      </span>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {actionLoading === user.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : user.id === (me as any)?.id ? (
-                      <Badge variant="outline" className="text-xs">You</Badge>
-                    ) : (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={`h-8 w-8 ${user.role === "admin" ? "text-amber-600 hover:bg-amber-50" : "text-muted-foreground"}`}
-                          onClick={() => toggleRole(user)}
-                          title={user.role === "admin" ? "Remove admin" : "Make admin"}
-                        >
-                          <Crown className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                          onClick={() => deleteUser(user)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </>
-                    )}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {actionLoading === user.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : isMe ? (
+                        <Badge variant="outline" className="text-xs">You</Badge>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`h-8 w-8 ${user.role === "admin" ? "text-amber-600 hover:bg-amber-50" : "text-muted-foreground"}`}
+                            onClick={() => toggleRole(user)}
+                            title={user.role === "admin" ? "Remove admin" : "Make admin"}
+                          >
+                            <Crown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                            onClick={() => deleteUser(user)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground"
+                        onClick={() => setExpandedUser(isExpanded ? null : user.id)}
+                        title="More actions"
+                      >
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </div>
                 </div>
+
+                {/* Expanded actions */}
+                {isExpanded && !isMe && (
+                  <div className="border-t bg-muted/30 p-3 space-y-3">
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Admin Actions</p>
+
+                    {/* Send password reset email */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-medium">Send Password Reset</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {user.email ? `Send link to ${user.email}` : "No email on file"}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs gap-1"
+                        onClick={() => sendResetEmail(user)}
+                        disabled={!user.email || actionLoading === user.id}
+                      >
+                        {actionLoading === user.id
+                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                          : <KeyRound className="h-3 w-3" />}
+                        Send Reset
+                      </Button>
+                    </div>
+
+                    {/* Manual verify email */}
+                    {!user.emailVerified && user.email && (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium">Verify Email Manually</p>
+                          <p className="text-[10px] text-muted-foreground">Mark email as verified without link</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs gap-1 text-green-700 border-green-200 hover:bg-green-50"
+                          onClick={() => verifyUserEmail(user)}
+                          disabled={actionLoading === user.id}
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          Verify
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Edit email */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium">Change Email</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs gap-1"
+                          onClick={() => {
+                            if (editEmailId === user.id) {
+                              setEditEmailId(null); setEditEmailValue("");
+                            } else {
+                              setEditEmailId(user.id);
+                              setEditEmailValue(user.email || "");
+                            }
+                          }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                          {editEmailId === user.id ? "Cancel" : "Edit"}
+                        </Button>
+                      </div>
+                      {editEmailId === user.id && (
+                        <div className="flex gap-2">
+                          <Input
+                            type="email"
+                            placeholder="new@email.com"
+                            value={editEmailValue}
+                            onChange={(e) => setEditEmailValue(e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                          <Button
+                            size="sm"
+                            className="h-8 px-3 text-xs flex-shrink-0"
+                            onClick={() => editUserEmail(user.id)}
+                            disabled={editEmailLoading}
+                          >
+                            {editEmailLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3" />}
+                            Save
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </Card>
-            ))}
+              );
+            })}
           </TabsContent>
 
           {/* ── Deleted Records Tab ── */}

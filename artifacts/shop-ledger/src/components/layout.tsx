@@ -10,6 +10,7 @@ import {
   Menu,
   LogOut,
   BookOpen,
+  Trash2,
 } from "lucide-react";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ const navItems = [
 ];
 
 const secondaryNavItems = [
+  { icon: Trash2, label: "Recycle Bin", href: "/recycle-bin" },
   { icon: DatabaseBackup, label: "Backup", href: "/backup" },
   { icon: Settings, label: "Settings", href: "/settings" },
 ];
