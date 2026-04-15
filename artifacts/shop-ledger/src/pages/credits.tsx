@@ -24,6 +24,10 @@ import {
   Smartphone,
   ArrowDownCircle,
   Wallet,
+  ChevronDown,
+  ChevronUp,
+  User,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +71,7 @@ type Credit = {
   createdAt: string;
 };
 
+// ── Single credit entry card ──────────────────────────────────────────────────
 function CreditCard({
   credit,
   onMarkPaid,
@@ -161,6 +166,197 @@ function CreditCard({
   );
 }
 
+// ── Per-customer expandable report card ───────────────────────────────────────
+function CustomerReportCard({
+  customerName,
+  credits,
+  onMarkPaid,
+  onDelete,
+  onReceivePayment,
+}: {
+  customerName: string;
+  credits: Credit[];
+  onMarkPaid: (id: number) => void;
+  onDelete: (id: number) => void;
+  onReceivePayment: (credit: Credit) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const pendingGiven = credits
+    .filter((c) => c.type === "given" && c.status === "pending")
+    .reduce((s, c) => s + c.amount, 0);
+  const pendingReceived = credits
+    .filter((c) => c.type === "received" && c.status === "pending")
+    .reduce((s, c) => s + c.amount, 0);
+  const totalPaid = credits
+    .filter((c) => c.status === "paid")
+    .reduce((s, c) => s + c.amount, 0);
+  const pendingCount = credits.filter((c) => c.status === "pending").length;
+  const hasPending = pendingCount > 0;
+
+  return (
+    <div className="border rounded-xl overflow-hidden bg-card">
+      {/* Customer header row */}
+      <button
+        className="w-full flex items-center justify-between px-4 py-3 gap-3 text-left hover:bg-accent/40 transition-colors"
+        onClick={() => setExpanded((e) => !e)}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <User className="h-4 w-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-sm truncate">{customerName}</p>
+            <div className="flex items-center gap-2 flex-wrap mt-0.5">
+              {pendingGiven > 0 && (
+                <span className="text-xs text-red-600 font-medium">
+                  Owes: {formatCurrency(pendingGiven)}
+                </span>
+              )}
+              {pendingReceived > 0 && (
+                <span className="text-xs text-green-600 font-medium">
+                  You owe: {formatCurrency(pendingReceived)}
+                </span>
+              )}
+              {totalPaid > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  Paid: {formatCurrency(totalPaid)}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {hasPending && (
+            <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px] h-5 px-1.5">
+              {pendingCount} pending
+            </Badge>
+          )}
+          {!hasPending && (
+            <Badge className="bg-green-100 text-green-700 border-0 text-[10px] h-5 px-1.5">
+              Clear
+            </Badge>
+          )}
+          {expanded ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </div>
+      </button>
+
+      {/* Expanded detail list */}
+      {expanded && (
+        <div className="border-t bg-muted/20 px-3 py-3 space-y-2">
+          {/* Quick stats row */}
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="bg-red-50 border border-red-100 rounded-lg p-2 text-center">
+              <p className="text-[10px] text-red-500 font-medium">Pending Given</p>
+              <p className="text-sm font-bold text-red-700">{formatCurrency(pendingGiven)}</p>
+            </div>
+            <div className="bg-green-50 border border-green-100 rounded-lg p-2 text-center">
+              <p className="text-[10px] text-green-500 font-medium">Pending Received</p>
+              <p className="text-sm font-bold text-green-700">{formatCurrency(pendingReceived)}</p>
+            </div>
+            <div className="bg-muted border rounded-lg p-2 text-center">
+              <p className="text-[10px] text-muted-foreground font-medium">Total Paid</p>
+              <p className="text-sm font-bold">{formatCurrency(totalPaid)}</p>
+            </div>
+          </div>
+
+          {/* Individual entries list */}
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1 mb-1">
+            All Entries ({credits.length})
+          </p>
+          {credits
+            .slice()
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .map((credit) => (
+              <div
+                key={credit.id}
+                className="bg-card border rounded-lg px-3 py-2.5 flex items-center justify-between gap-2"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Badge
+                      className={`text-[10px] px-1.5 py-0 h-4 border-0 ${
+                        credit.status === "paid"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      {credit.status === "paid" ? "Paid" : "Pending"}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] px-1.5 py-0 h-4 ${
+                        credit.type === "given"
+                          ? "text-red-600 border-red-200"
+                          : "text-green-600 border-green-200"
+                      }`}
+                    >
+                      {credit.type === "given" ? "Given" : "Received"}
+                    </Badge>
+                  </div>
+                  {credit.description && (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                      {credit.description}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {format(new Date(credit.createdAt), "MMM d, yyyy")}
+                    {credit.dueDate &&
+                      ` · Due: ${format(new Date(credit.dueDate), "MMM d, yyyy")}`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <p
+                    className={`font-bold text-sm ${
+                      credit.type === "given" ? "text-red-600" : "text-green-600"
+                    }`}
+                  >
+                    {formatCurrency(credit.amount)}
+                  </p>
+                  {credit.status === "pending" && credit.type === "given" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-[11px] border-green-300 text-green-700 hover:bg-green-50 gap-1 px-2"
+                      onClick={() => onReceivePayment(credit)}
+                    >
+                      <ArrowDownCircle className="h-3 w-3" />
+                      Pay
+                    </Button>
+                  )}
+                  {credit.status === "pending" && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-green-600 hover:bg-green-50"
+                      onClick={() => onMarkPaid(credit.id)}
+                      title="Mark paid"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive"
+                    onClick={() => onDelete(credit.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Credits page ─────────────────────────────────────────────────────────
 export default function Credits() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -169,6 +365,7 @@ export default function Credits() {
   const [selectedCredit, setSelectedCredit] = useState<Credit | null>(null);
   const [tab, setTab] = useState("given");
   const [customerSearch, setCustomerSearch] = useState("");
+  const [reportSearch, setReportSearch] = useState("");
 
   useEffect(() => {
     document.title = "Credits - LedgerEntries";
@@ -198,6 +395,41 @@ export default function Credits() {
   });
 
   const filteredCredits = credits?.filter((c) => c.type === tab) ?? [];
+
+  // Group ALL credits by customer for the report view
+  const customerMap = new Map<string, Credit[]>();
+  for (const c of credits ?? []) {
+    const key = c.customerName.trim().toLowerCase();
+    const display = c.customerName.trim();
+    if (!customerMap.has(display)) {
+      // Use display name as key (find existing with case-insensitive match)
+      const existing = [...customerMap.keys()].find(
+        (k) => k.toLowerCase() === key
+      );
+      if (existing) {
+        customerMap.get(existing)!.push(c);
+      } else {
+        customerMap.set(display, [c]);
+      }
+    } else {
+      customerMap.get(display)!.push(c);
+    }
+  }
+
+  const filteredCustomers = [...customerMap.entries()]
+    .filter(([name]) =>
+      reportSearch === "" || name.toLowerCase().includes(reportSearch.toLowerCase())
+    )
+    .sort((a, b) => {
+      // Sort by pending amount descending
+      const aPending = a[1]
+        .filter((c) => c.status === "pending")
+        .reduce((s, c) => s + c.amount, 0);
+      const bPending = b[1]
+        .filter((c) => c.status === "pending")
+        .reduce((s, c) => s + c.amount, 0);
+      return bPending - aPending;
+    });
 
   const onSubmit = (data: z.infer<typeof creditSchema>) => {
     createCredit.mutate(
@@ -242,7 +474,6 @@ export default function Credits() {
     const outstanding = selectedCredit.amount;
     const isFullPayment = received >= outstanding;
 
-    // 1. Create a Cash In entry for the amount received (goes into cash/digital balance)
     createEntry.mutate(
       {
         data: {
@@ -256,9 +487,7 @@ export default function Credits() {
       },
       {
         onSuccess: () => {
-          // 2. Update the credit record
           if (isFullPayment) {
-            // Mark as fully paid
             updateCredit.mutate(
               { id: selectedCredit.id, data: { status: "paid" } },
               {
@@ -276,7 +505,6 @@ export default function Credits() {
               }
             );
           } else {
-            // Partial payment — reduce the outstanding amount
             const remaining = outstanding - received;
             updateCredit.mutate(
               { id: selectedCredit.id, data: { amount: remaining } },
@@ -369,17 +597,22 @@ export default function Credits() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="w-full mb-4 grid grid-cols-2">
+          <TabsList className="w-full mb-4 grid grid-cols-3">
             <TabsTrigger value="given" data-testid="tab-given">
-              Given (Customers owe you)
+              Given
             </TabsTrigger>
             <TabsTrigger value="received" data-testid="tab-received">
-              Received (You owe)
+              Received
+            </TabsTrigger>
+            <TabsTrigger value="customers" data-testid="tab-customers">
+              <FileText className="h-3.5 w-3.5 mr-1" />
+              Customers
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value={tab} className="space-y-2 mt-0">
-            {tab === "given" && filteredCredits.some((c) => c.status === "pending") && (
+          {/* ── Given & Received tabs ── */}
+          <TabsContent value="given" className="space-y-2 mt-0">
+            {filteredCredits.some((c) => c.status === "pending") && (
               <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-2">
                 <ArrowDownCircle className="h-3.5 w-3.5 flex-shrink-0" />
                 <span>"Receive" button dabao jab customer paisa dey — cash ya digital mein add ho jayega.</span>
@@ -394,7 +627,7 @@ export default function Credits() {
             ) : filteredCredits.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No {tab} credits yet</p>
+                <p className="font-medium">No given credits yet</p>
               </div>
             ) : (
               filteredCredits.map((credit) => (
@@ -406,6 +639,77 @@ export default function Credits() {
                   onReceivePayment={openReceivePayment}
                 />
               ))
+            )}
+          </TabsContent>
+
+          <TabsContent value="received" className="space-y-2 mt-0">
+            {isLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-20 bg-card border rounded-xl animate-pulse" />
+                ))}
+              </div>
+            ) : credits?.filter((c) => c.type === "received").length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No received credits yet</p>
+              </div>
+            ) : (
+              credits
+                ?.filter((c) => c.type === "received")
+                .map((credit) => (
+                  <CreditCard
+                    key={credit.id}
+                    credit={credit}
+                    onMarkPaid={handleMarkPaid}
+                    onDelete={handleDelete}
+                    onReceivePayment={openReceivePayment}
+                  />
+                ))
+            )}
+          </TabsContent>
+
+          {/* ── Customers report tab ── */}
+          <TabsContent value="customers" className="mt-0">
+            <div className="mb-3">
+              <Input
+                placeholder="Customer name search karo..."
+                value={reportSearch}
+                onChange={(e) => setReportSearch(e.target.value)}
+                className="h-9 text-sm"
+                data-testid="input-customer-search"
+              />
+            </div>
+
+            {isLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-16 bg-card border rounded-xl animate-pulse" />
+                ))}
+              </div>
+            ) : filteredCustomers.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">
+                  {reportSearch ? "Koi customer nahi mila" : "Abhi koi credit nahi"}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground px-1 mb-2">
+                  {filteredCustomers.length} customer{filteredCustomers.length !== 1 ? "s" : ""} — tap to expand
+                </p>
+                {filteredCustomers.map(([name, customerCredits]) => (
+                  <CustomerReportCard
+                    key={name}
+                    customerName={name}
+                    credits={customerCredits}
+                    onMarkPaid={handleMarkPaid}
+                    onDelete={handleDelete}
+                    onReceivePayment={openReceivePayment}
+                  />
+                ))}
+              </div>
             )}
           </TabsContent>
         </Tabs>
@@ -533,7 +837,6 @@ export default function Credits() {
                         Digital
                       </button>
                     </div>
-                    {/* Info about where it goes */}
                     <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
                       <Wallet className="h-3 w-3" />
                       {field.value === "cash"
@@ -565,6 +868,7 @@ export default function Credits() {
         <DialogContent className="sm:max-w-md" data-testid="add-credit-dialog">
           <DialogHeader>
             <DialogTitle>Add Credit Entry</DialogTitle>
+            <DialogDescription>Customer ka credit record add karo</DialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -600,7 +904,7 @@ export default function Credits() {
                 name="type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Type</FormLabel>
+                    <FormLabel>Credit Type</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger data-testid="select-credit-type">
@@ -608,10 +912,11 @@ export default function Credits() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="given">Given (You gave credit)</SelectItem>
-                        <SelectItem value="received">Received (You got credit)</SelectItem>
+                        <SelectItem value="given">Given — Customer owes you</SelectItem>
+                        <SelectItem value="received">Received — You owe customer</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
