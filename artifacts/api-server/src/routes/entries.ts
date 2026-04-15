@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lte, isNull, isNotNull, desc } from "drizzle-orm";
+import { eq, and, gte, lte, isNull, isNotNull, desc, sql } from "drizzle-orm";
 import { db, entriesTable, creditsTable } from "@workspace/db";
 import {
   CreateEntryBody,
@@ -109,14 +109,44 @@ router.post("/entries", requireAuth, async (req, res): Promise<void> => {
     // cash_in with credit = you gave goods on credit (customer owes you) → "given"
     // cash_out with credit = you got something on credit (you owe supplier) → "received"
     const creditType = type === "cash_in" ? "given" : "received";
-    await db.insert(creditsTable).values({
-      userId,
-      customerName,
-      amount: amount.toString(),
-      description: description ?? null,
-      type: creditType,
-      status: "pending",
-    });
+
+    // Check if this customer already has a pending credit of the same type
+    const [existingCredit] = await db
+      .select()
+      .from(creditsTable)
+      .where(
+        and(
+          eq(creditsTable.userId, userId),
+          eq(creditsTable.customerName, customerName),
+          eq(creditsTable.type, creditType),
+          eq(creditsTable.status, "pending")
+        )
+      )
+      .limit(1);
+
+    if (existingCredit) {
+      // Add new amount to existing credit record
+      const newAmount = parseFloat(existingCredit.amount) + amount;
+      await db
+        .update(creditsTable)
+        .set({
+          amount: newAmount.toString(),
+          description: description
+            ? `${existingCredit.description ? existingCredit.description + " | " : ""}${description}`
+            : existingCredit.description,
+        })
+        .where(eq(creditsTable.id, existingCredit.id));
+    } else {
+      // Create a new credit record for this customer
+      await db.insert(creditsTable).values({
+        userId,
+        customerName,
+        amount: amount.toString(),
+        description: description ?? null,
+        type: creditType,
+        status: "pending",
+      });
+    }
   }
 
   res.status(201).json(formatEntry(entry));

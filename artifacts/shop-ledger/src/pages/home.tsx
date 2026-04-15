@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
   useGetReportSummary, 
@@ -12,7 +12,7 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, TrendingUp, TrendingDown, Wallet, CreditCard, Loader2, Trash2, Pencil, Handshake } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Loader2, Trash2, Pencil, Handshake, ChevronDown, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -47,12 +47,18 @@ export default function Home() {
   const [entryType, setEntryType] = useState<"cash_in" | "cash_out">("cash_in");
   const [editEntry, setEditEntry] = useState<number | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const customerInputRef = useRef<HTMLInputElement>(null);
 
   const { data: summary, isLoading: summaryLoading } = useGetReportSummary();
   const { data: todayEntries, isLoading: entriesLoading } = useListEntries({
     date: new Date().toISOString().split("T")[0],
   });
-  const { data: customers } = useListCustomers({ q: customerSearch });
+  // Fetch all customers (no filter) for the dropdown list
+  const { data: allCustomers } = useListCustomers({});
+  // Fetch filtered customers when user types
+  const { data: filteredCustomers } = useListCustomers({ q: customerSearch });
+  const customers = customerSearch ? filteredCustomers : allCustomers;
 
   const createEntry = useCreateEntry();
   const deleteEntry = useDeleteEntry();
@@ -77,6 +83,8 @@ export default function Home() {
   const openDialog = (type: "cash_in" | "cash_out") => {
     setEntryType(type);
     form.reset({ amount: 0, description: "", paymentMethod: "cash", isCredit: false, customerName: "" });
+    setCustomerSearch("");
+    setShowCustomerDropdown(false);
     setDialogOpen(true);
   };
 
@@ -387,7 +395,7 @@ export default function Home() {
                 <>
                   <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                     <Handshake className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                    <span>Yeh entry automatically Credits page mein bhi save hogi customer ke naam se.</span>
+                    <span>Yeh entry automatically Credits page mein bhi save hogi. Purana customer select karo toh amount add ho jayega.</span>
                   </div>
                   <FormField
                     control={form.control}
@@ -395,23 +403,55 @@ export default function Home() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Customer Name</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Customer ka naam likhein..."
-                            {...field}
-                            onChange={(e) => {
-                              field.onChange(e);
-                              setCustomerSearch(e.target.value);
-                            }}
-                            list="customer-suggestions"
-                            data-testid="input-customer-name"
-                          />
-                        </FormControl>
-                        <datalist id="customer-suggestions">
-                          {customers?.map((c) => (
-                            <option key={c.id} value={c.name} />
-                          ))}
-                        </datalist>
+                        <div className="relative">
+                          <FormControl>
+                            <Input
+                              ref={customerInputRef}
+                              placeholder="Customer ka naam likhein ya select karein..."
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                setCustomerSearch(e.target.value);
+                                setShowCustomerDropdown(true);
+                              }}
+                              onFocus={() => setShowCustomerDropdown(true)}
+                              onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
+                              autoComplete="off"
+                              data-testid="input-customer-name"
+                            />
+                          </FormControl>
+                          {/* Existing customers dropdown */}
+                          {showCustomerDropdown && customers && customers.length > 0 && (
+                            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                              <p className="text-[10px] text-muted-foreground px-3 pt-2 pb-1 uppercase tracking-wide font-semibold">Existing Customers</p>
+                              {customers.map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-accent transition-colors"
+                                  onMouseDown={() => {
+                                    field.onChange(c.name);
+                                    setCustomerSearch(c.name);
+                                    setShowCustomerDropdown(false);
+                                  }}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <UserCheck className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                                    <span className="text-sm font-medium">{c.name}</span>
+                                  </div>
+                                  <span className="text-xs text-amber-600 font-semibold flex-shrink-0">
+                                    {formatCurrency(c.totalCredit)} pending
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {showCustomerDropdown && (!customers || customers.length === 0) && (
+                            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-xl shadow-lg p-3 text-xs text-muted-foreground">
+                              No existing customers. Naya naam likhen.
+                            </div>
+                          )}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}
