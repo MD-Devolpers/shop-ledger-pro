@@ -1,22 +1,35 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Daily Shop Ledger API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: entries
+    description: Ledger entry operations
+  - name: credits
+    description: Credit operations
+  - name: profits
+    description: Profit operations
+  - name: reports
+    description: Report operations
+  - name: customers
+    description: Customer operations
+  - name: backup
+    description: Backup operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +37,534 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/signup:
+    post:
+      operationId: signup
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupBody"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Username already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout current user
+      responses:
+        "200":
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user info
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      summary: Request password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordBody"
+      responses:
+        "200":
+          description: Reset email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Reset password with token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordBody"
+      responses:
+        "200":
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+        "400":
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /entries:
+    get:
+      operationId: listEntries
+      tags: [entries]
+      summary: List all entries (optionally filtered)
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [cash_in, cash_out]
+        - name: payment_method
+          in: query
+          schema:
+            type: string
+            enum: [cash, digital]
+        - name: date
+          in: query
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          schema:
+            type: string
+        - name: deleted
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Entry"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      operationId: createEntry
+      tags: [entries]
+      summary: Create a new ledger entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEntryBody"
+      responses:
+        "201":
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entry"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /entries/{id}:
+    get:
+      operationId: getEntry
+      tags: [entries]
+      summary: Get a single entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Entry found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entry"
+        "404":
+          description: Entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      operationId: updateEntry
+      tags: [entries]
+      summary: Update an entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEntryBody"
+      responses:
+        "200":
+          description: Entry updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entry"
+        "404":
+          description: Entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteEntry
+      tags: [entries]
+      summary: Soft-delete an entry (move to recycle bin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Entry deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entry"
+        "404":
+          description: Entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /entries/{id}/restore:
+    patch:
+      operationId: restoreEntry
+      tags: [entries]
+      summary: Restore entry from recycle bin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Entry restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entry"
+        "404":
+          description: Entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /entries/{id}/profit:
+    patch:
+      operationId: updateEntryProfit
+      tags: [entries]
+      summary: Set or update profit for an entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfitBody"
+      responses:
+        "200":
+          description: Profit updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Entry"
+        "404":
+          description: Entry not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /credits:
+    get:
+      operationId: listCredits
+      tags: [credits]
+      summary: List all credit entries
+      parameters:
+        - name: customer_name
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, paid]
+      responses:
+        "200":
+          description: List of credits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Credit"
+
+    post:
+      operationId: createCredit
+      tags: [credits]
+      summary: Create a credit entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCreditBody"
+      responses:
+        "201":
+          description: Credit created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Credit"
+
+  /credits/{id}:
+    patch:
+      operationId: updateCredit
+      tags: [credits]
+      summary: Update a credit entry (e.g., mark as paid)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCreditBody"
+      responses:
+        "200":
+          description: Credit updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Credit"
+
+    delete:
+      operationId: deleteCredit
+      tags: [credits]
+      summary: Delete a credit entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List all customers for autocomplete
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+
+  /reports/summary:
+    get:
+      operationId: getReportSummary
+      tags: [reports]
+      summary: Get balance summary (cash and digital)
+      responses:
+        "200":
+          description: Summary data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceSummary"
+
+  /reports/entries:
+    get:
+      operationId: getEntriesReport
+      tags: [reports]
+      summary: Get entries report for a period
+      parameters:
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+        - name: date
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Entries report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntriesReport"
+
+  /reports/profit:
+    get:
+      operationId: getProfitReport
+      tags: [reports]
+      summary: Get profit report for a period
+      parameters:
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+        - name: date
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Profit report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfitReport"
+
+  /backup/export:
+    get:
+      operationId: exportBackup
+      tags: [backup]
+      summary: Export all user data as JSON for manual backup
+      responses:
+        "200":
+          description: Backup data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupData"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +575,371 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        email:
+          type: ["string", "null"]
+        language:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - username
+        - language
+        - createdAt
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        message:
+          type: string
+      required:
+        - user
+        - message
+
+    SignupBody:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        email:
+          type: ["string", "null"]
+        language:
+          type: string
+      required:
+        - username
+        - password
+
+    LoginBody:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+
+    ForgotPasswordBody:
+      type: object
+      properties:
+        email:
+          type: string
+      required:
+        - email
+
+    ResetPasswordBody:
+      type: object
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+      required:
+        - token
+        - newPassword
+
+    Entry:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        type:
+          type: string
+          enum: [cash_in, cash_out]
+        amount:
+          type: number
+        description:
+          type: ["string", "null"]
+        paymentMethod:
+          type: string
+          enum: [cash, digital]
+        profit:
+          type: ["number", "null"]
+        isCredit:
+          type: boolean
+        customerName:
+          type: ["string", "null"]
+        deletedAt:
+          type: ["string", "null"]
+        entryDate:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - userId
+        - type
+        - amount
+        - paymentMethod
+        - isCredit
+        - entryDate
+        - createdAt
+        - updatedAt
+
+    CreateEntryBody:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [cash_in, cash_out]
+        amount:
+          type: number
+        description:
+          type: ["string", "null"]
+        paymentMethod:
+          type: string
+          enum: [cash, digital]
+        isCredit:
+          type: boolean
+        customerName:
+          type: ["string", "null"]
+        entryDate:
+          type: ["string", "null"]
+      required:
+        - type
+        - amount
+        - paymentMethod
+
+    UpdateEntryBody:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [cash_in, cash_out]
+        amount:
+          type: number
+        description:
+          type: ["string", "null"]
+        paymentMethod:
+          type: string
+          enum: [cash, digital]
+        isCredit:
+          type: boolean
+        customerName:
+          type: ["string", "null"]
+        entryDate:
+          type: ["string", "null"]
+
+    UpdateProfitBody:
+      type: object
+      properties:
+        profit:
+          type: ["number", "null"]
+      required:
+        - profit
+
+    Credit:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        customerName:
+          type: string
+        amount:
+          type: number
+        description:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [given, received]
+        status:
+          type: string
+          enum: [pending, paid]
+        dueDate:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - userId
+        - customerName
+        - amount
+        - type
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateCreditBody:
+      type: object
+      properties:
+        customerName:
+          type: string
+        amount:
+          type: number
+        description:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [given, received]
+        dueDate:
+          type: ["string", "null"]
+      required:
+        - customerName
+        - amount
+        - type
+
+    UpdateCreditBody:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, paid]
+        amount:
+          type: number
+        description:
+          type: ["string", "null"]
+        dueDate:
+          type: ["string", "null"]
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        totalCredit:
+          type: number
+      required:
+        - id
+        - name
+        - totalCredit
+
+    BalanceSummary:
+      type: object
+      properties:
+        cashBalance:
+          type: number
+        digitalBalance:
+          type: number
+        totalBalance:
+          type: number
+        totalCashIn:
+          type: number
+        totalCashOut:
+          type: number
+        totalProfit:
+          type: number
+        totalCredit:
+          type: number
+        todayEntries:
+          type: integer
+      required:
+        - cashBalance
+        - digitalBalance
+        - totalBalance
+        - totalCashIn
+        - totalCashOut
+        - totalProfit
+        - totalCredit
+        - todayEntries
+
+    EntriesReport:
+      type: object
+      properties:
+        period:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        totalCashIn:
+          type: number
+        totalCashOut:
+          type: number
+        cashBalance:
+          type: number
+        digitalBalance:
+          type: number
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/Entry"
+      required:
+        - period
+        - startDate
+        - endDate
+        - totalCashIn
+        - totalCashOut
+        - cashBalance
+        - digitalBalance
+        - entries
+
+    ProfitReport:
+      type: object
+      properties:
+        period:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        totalProfit:
+          type: number
+        entriesWithProfit:
+          type: array
+          items:
+            $ref: "#/components/schemas/Entry"
+      required:
+        - period
+        - startDate
+        - endDate
+        - totalProfit
+        - entriesWithProfit
+
+    BackupData:
+      type: object
+      properties:
+        exportedAt:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/Entry"
+        credits:
+          type: array
+          items:
+            $ref: "#/components/schemas/Credit"
+      required:
+        - exportedAt
+        - user
+        - entries
+        - credits
