@@ -97,15 +97,24 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
-  // Also sum pending credits from the credits table
-  const credits = await db
-    .select({ totalAmount: sum(creditsTable.amount) })
+  // Calculate credit balances from the credits table (live, reflects all payments)
+  const pendingCredits = await db
+    .select({ type: creditsTable.type, totalAmount: sum(creditsTable.amount) })
     .from(creditsTable)
-    .where(and(eq(creditsTable.userId, userId), eq(creditsTable.status, "pending")));
+    .where(and(eq(creditsTable.userId, userId), eq(creditsTable.status, "pending")))
+    .groupBy(creditsTable.type);
 
-  const totalCredit = parseFloat(credits[0]?.totalAmount ?? "0");
-  // Net credit balance: money owed to you minus money you owe
-  const creditBalance = totalCreditGiven - totalCreditReceived;
+  const pendingGiven = parseFloat(
+    pendingCredits.find((c) => c.type === "given")?.totalAmount ?? "0"
+  );
+  const pendingReceived = parseFloat(
+    pendingCredits.find((c) => c.type === "received")?.totalAmount ?? "0"
+  );
+
+  // totalCredit = money customers owe you (pending given credits only)
+  const totalCredit = pendingGiven;
+  // creditBalance = net: owed to you minus you owe others
+  const creditBalance = pendingGiven - pendingReceived;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

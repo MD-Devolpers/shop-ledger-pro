@@ -213,6 +213,7 @@ export default function Credits() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListCreditsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetReportSummaryQueryKey() });
           setDialogOpen(false);
           form.reset();
           toast({ title: "Credit entry added" });
@@ -312,6 +313,7 @@ export default function Credits() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListCreditsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetReportSummaryQueryKey() });
           toast({ title: "Marked as paid" });
         },
       }
@@ -324,6 +326,7 @@ export default function Credits() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListCreditsQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getGetReportSummaryQueryKey() });
           toast({ title: "Credit deleted" });
         },
       }
