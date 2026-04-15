@@ -199,33 +199,45 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   const { username, password } = parsed.data;
 
+  // Accept username OR email for login
+  const isEmail = username.includes("@");
   const [user] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.username, username));
+    .where(isEmail ? eq(usersTable.email, username) : eq(usersTable.username, username));
 
-  if (!user) {
-    res.status(401).json({ error: "Invalid username or password" });
+  // If not found by the primary method, try the other one
+  let finalUser = user;
+  if (!finalUser) {
+    const [byOther] = await db
+      .select()
+      .from(usersTable)
+      .where(isEmail ? eq(usersTable.username, username) : eq(usersTable.email, username));
+    finalUser = byOther;
+  }
+
+  if (!finalUser) {
+    res.status(401).json({ error: "Invalid username/email or password" });
     return;
   }
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
+  const valid = await bcrypt.compare(password, finalUser.passwordHash);
   if (!valid) {
-    res.status(401).json({ error: "Invalid username or password" });
+    res.status(401).json({ error: "Invalid username/email or password" });
     return;
   }
 
-  req.session = { userId: user.id };
+  req.session = { userId: finalUser.id };
 
   res.json({
     user: {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      language: user.language,
-      role: user.role,
-      emailVerified: user.emailVerified,
-      createdAt: user.createdAt.toISOString(),
+      id: finalUser.id,
+      username: finalUser.username,
+      email: finalUser.email,
+      language: finalUser.language,
+      role: finalUser.role,
+      emailVerified: finalUser.emailVerified,
+      createdAt: finalUser.createdAt.toISOString(),
     },
     message: "Login successful",
   });
@@ -265,21 +277,37 @@ router.get("/auth/me", async (req, res): Promise<void> => {
 });
 
 router.post("/auth/forgot-password", async (req, res): Promise<void> => {
-  const parsed = ForgotPasswordBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+  const identifier: string = req.body?.email || req.body?.username || "";
+  if (!identifier || identifier.trim().length < 1) {
+    res.status(400).json({ error: "Please enter your username or email address" });
     return;
   }
 
-  const { email } = parsed.data;
-
-  const [user] = await db
+  // Look up by email first, then username
+  const isEmail = identifier.includes("@");
+  const [byPrimary] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.email, email));
+    .where(isEmail ? eq(usersTable.email, identifier) : eq(usersTable.username, identifier));
+
+  let user = byPrimary;
+  if (!user) {
+    const [bySecondary] = await db
+      .select()
+      .from(usersTable)
+      .where(isEmail ? eq(usersTable.username, identifier) : eq(usersTable.email, identifier));
+    user = bySecondary;
+  }
+
+  const email = user?.email;
 
   if (!user) {
-    res.status(404).json({ error: "No account found with that email" });
+    res.status(404).json({ error: "No account found with that username or email" });
+    return;
+  }
+
+  if (!email) {
+    res.status(400).json({ error: "This account has no email address. Contact support." });
     return;
   }
 

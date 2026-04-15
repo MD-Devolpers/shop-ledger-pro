@@ -91,9 +91,9 @@ export default function Login() {
                   name="username"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Username</FormLabel>
+                      <FormLabel>Username or Email</FormLabel>
                       <FormControl>
-                        <Input placeholder="shopowner" {...field} data-testid="input-username" />
+                        <Input placeholder="username or email address" autoComplete="username" {...field} data-testid="input-username" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

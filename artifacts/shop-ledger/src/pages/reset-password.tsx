@@ -40,7 +40,7 @@ export default function ResetPassword() {
       { data: { token, newPassword: data.newPassword } },
       {
         onSuccess: () => {
-          toast({ title: "Password reset!", description: "You can now log in with your new password." });
+          toast({ title: "Password reset!", description: "You can now log in with your username or email address." });
           setLocation("/login");
         },
         onError: (error) => {

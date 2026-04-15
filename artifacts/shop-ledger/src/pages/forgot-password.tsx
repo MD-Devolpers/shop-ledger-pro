@@ -1,51 +1,49 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { useForgotPassword } from "@workspace/api-client-react";
 import { Loader2, ArrowLeft, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-
-const schema = z.object({
-  email: z.string().email("Enter a valid email address"),
-});
 
 export default function ForgotPassword() {
   const { toast } = useToast();
   const [sent, setSent] = useState(false);
-  const mutation = useForgotPassword();
+  const [identifier, setIdentifier] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     document.title = "Reset Password - LedgerEntries";
   }, []);
 
-  const form = useForm<z.infer<typeof schema>>({
-    resolver: zodResolver(schema),
-    defaultValues: { email: "" },
-  });
-
-  const onSubmit = (data: z.infer<typeof schema>) => {
-    mutation.mutate(
-      { data },
-      {
-        onSuccess: () => {
-          setSent(true);
-          toast({ title: "Email sent", description: "Check your email for reset instructions." });
-        },
-        onError: (error) => {
-          toast({
-            title: "Error",
-            description: error.error || "Could not send reset email.",
-            variant: "destructive",
-          });
-        },
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!identifier.trim()) {
+      toast({ title: "Required", description: "Please enter your username or email.", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          identifier.includes("@")
+            ? { email: identifier.trim() }
+            : { username: identifier.trim() }
+        ),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        setSent(true);
+        toast({ title: "Reset email sent!", description: "Check your inbox for the reset link." });
+      } else {
+        toast({ title: "Error", description: d.error || "Could not send reset email.", variant: "destructive" });
       }
-    );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -56,57 +54,73 @@ export default function ForgotPassword() {
             <Mail className="h-6 w-6 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Forgot Password</h1>
-          <p className="text-muted-foreground mt-1">Enter your email to reset your password</p>
+          <p className="text-muted-foreground mt-1">Enter your username or email to reset</p>
         </div>
 
         <Card className="border-0 shadow-xl sm:border">
           <CardHeader>
             <CardTitle>Password Reset</CardTitle>
             <CardDescription>
-              {sent ? "Reset email sent!" : "We'll send you a reset link"}
+              {sent ? "Reset email sent!" : "We'll send a reset link to your email"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {sent ? (
-              <div className="text-center py-4">
-                <p className="text-muted-foreground mb-4">
-                  If an account exists with that email, you'll receive a password reset link shortly.
+              <div className="text-center py-4 space-y-4">
+                <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                  <p className="text-sm text-green-700 font-medium">Reset link sent!</p>
+                  <p className="text-xs text-green-600 mt-1">
+                    Check your email inbox for the password reset link. It expires in 1 hour.
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Didn't receive it? Check your spam folder or try again.
                 </p>
-                <Link href="/login">
-                  <Button variant="outline" data-testid="button-back-to-login">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Login
-                  </Button>
-                </Link>
-              </div>
-            ) : (
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email Address</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="owner@shop.com" {...field} data-testid="input-forgot-email" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" className="w-full" disabled={mutation.isPending} data-testid="button-send-reset">
-                    {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Send Reset Link
+                <div className="flex flex-col gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setSent(false)} className="w-full">
+                    Try again
                   </Button>
                   <Link href="/login">
-                    <Button variant="ghost" className="w-full" data-testid="link-back-to-login">
+                    <Button variant="outline" className="w-full" data-testid="button-back-to-login">
                       <ArrowLeft className="mr-2 h-4 w-4" />
                       Back to Login
                     </Button>
                   </Link>
-                </form>
-              </Form>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="identifier">Username or Email Address</Label>
+                  <Input
+                    id="identifier"
+                    type="text"
+                    placeholder="yourname or you@email.com"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    autoComplete="username"
+                    data-testid="input-forgot-email"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter the username or email you used when signing up.
+                  </p>
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={loading}
+                  data-testid="button-send-reset"
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Send Reset Link
+                </Button>
+                <Link href="/login">
+                  <Button variant="ghost" className="w-full" data-testid="link-back-to-login">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to Login
+                  </Button>
+                </Link>
+              </form>
             )}
           </CardContent>
         </Card>
