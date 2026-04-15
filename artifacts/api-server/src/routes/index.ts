@@ -6,6 +6,7 @@ import creditsRouter from "./credits";
 import customersRouter from "./customers";
 import reportsRouter from "./reports";
 import backupRouter from "./backup";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(creditsRouter);
 router.use(customersRouter);
 router.use(reportsRouter);
 router.use(backupRouter);
+router.use(adminRouter);
 
 export default router;

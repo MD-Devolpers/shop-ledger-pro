@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useSignup, useGetMe } from "@workspace/api-client-react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,7 @@ export default function Signup() {
   const { toast } = useToast();
   const { data: user, isLoading: isUserLoading } = useGetMe({ query: { retry: false } });
   const signupMutation = useSignup();
+  const [emailSentTo, setEmailSentTo] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),
@@ -62,12 +63,16 @@ export default function Signup() {
         } 
       },
       {
-        onSuccess: () => {
-          toast({
-            title: "Account created!",
-            description: "Welcome to Daily Shop Ledger.",
-          });
-          setLocation("/");
+        onSuccess: (response: any) => {
+          if (data.email && response?.emailSent) {
+            setEmailSentTo(data.email);
+          } else {
+            toast({
+              title: "Account created!",
+              description: "Welcome to Daily Shop Ledger.",
+            });
+            setLocation("/");
+          }
         },
         onError: (error) => {
           toast({
@@ -79,6 +84,49 @@ export default function Signup() {
       }
     );
   };
+
+  // Show "verification email sent" screen
+  if (emailSentTo) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+        <div className="w-full max-w-sm">
+          <Card className="border-0 shadow-xl text-center p-8">
+            <div className="flex flex-col items-center gap-4">
+              <div className="rounded-full bg-green-100 p-4">
+                <Mail className="h-10 w-10 text-green-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Check Your Email</h2>
+                <p className="text-sm text-muted-foreground mt-2">
+                  We sent a verification link to:
+                </p>
+                <p className="font-semibold text-primary mt-1">{emailSentTo}</p>
+              </div>
+              <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-xs text-green-700 text-left w-full">
+                <CheckCircle2 className="h-3.5 w-3.5 inline mr-1" />
+                Account created! Email verify karo taakay account fully activate ho jaye.
+              </div>
+              <Button className="w-full" onClick={() => setLocation("/")}>
+                Continue to Dashboard
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Email nahi aayi?{" "}
+                <button
+                  className="text-primary underline"
+                  onClick={async () => {
+                    const res = await fetch("/api/auth/resend-verification", { method: "POST" });
+                    if (res.ok) alert("Verification email resent!");
+                  }}
+                >
+                  Dobara bhejo
+                </button>
+              </p>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4 py-8">

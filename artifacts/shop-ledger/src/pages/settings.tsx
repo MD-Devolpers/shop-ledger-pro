@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
-import { Settings as SettingsIcon, Globe, LogOut, User, Shield } from "lucide-react";
+import { Globe, LogOut, User, Shield, ShieldCheck, CheckCircle2, XCircle, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +57,27 @@ export default function Settings() {
             </div>
             <div className="flex items-center justify-between py-2 border-b last:border-0">
               <span className="text-sm text-muted-foreground">Email</span>
-              <span className="text-sm font-semibold">{user?.email || "Not set"}</span>
+              <span className="text-sm font-semibold">{(user as any)?.email || "Not set"}</span>
+            </div>
+            <div className="flex items-center justify-between py-2 border-b">
+              <span className="text-sm text-muted-foreground">Email Verified</span>
+              {(user as any)?.emailVerified ? (
+                <Badge className="bg-green-100 text-green-700 border-0 gap-1 text-xs">
+                  <CheckCircle2 className="h-3 w-3" /> Verified
+                </Badge>
+              ) : (user as any)?.email ? (
+                <Badge className="bg-amber-100 text-amber-700 border-0 gap-1 text-xs">
+                  <XCircle className="h-3 w-3" /> Not Verified
+                </Badge>
+              ) : (
+                <span className="text-xs text-muted-foreground">No email set</span>
+              )}
+            </div>
+            <div className="flex items-center justify-between py-2 border-b">
+              <span className="text-sm text-muted-foreground">Role</span>
+              <Badge className={(user as any)?.role === "admin" ? "bg-amber-100 text-amber-700 border-0 gap-1" : "bg-muted text-muted-foreground border-0"}>
+                {(user as any)?.role === "admin" ? <><Crown className="h-3 w-3" /> Admin</> : "User"}
+              </Badge>
             </div>
             <div className="flex items-center justify-between py-2 last:border-0">
               <span className="text-sm text-muted-foreground">Member Since</span>
@@ -109,6 +129,19 @@ export default function Settings() {
             </p>
           </CardContent>
         </Card>
+
+        {/* Admin Dashboard link — only visible to admins */}
+        {(user as any)?.role === "admin" && (
+          <Button
+            variant="outline"
+            className="w-full h-12 text-base border-amber-300 text-amber-700 hover:bg-amber-50"
+            onClick={() => setLocation("/admin")}
+            data-testid="button-admin-dashboard"
+          >
+            <ShieldCheck className="mr-2 h-5 w-5" />
+            Admin Dashboard
+          </Button>
+        )}
 
         {/* Logout */}
         <Button
