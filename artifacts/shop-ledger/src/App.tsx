@@ -26,6 +26,14 @@ const queryClient = new QueryClient({
   },
 });
 
+function ProtectedLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthRoute>
+      <Layout>{children}</Layout>
+    </AuthRoute>
+  );
+}
+
 function Router() {
   return (
     <Switch>
@@ -34,20 +42,25 @@ function Router() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/">
-        <AuthRoute>
-          <Layout>
-            <Switch>
-              <Route path="/" component={Home} />
-              <Route path="/entries" component={Entries} />
-              <Route path="/credits" component={Credits} />
-              <Route path="/profits" component={Profits} />
-              <Route path="/reports" component={Reports} />
-              <Route path="/backup" component={Backup} />
-              <Route path="/settings" component={Settings} />
-              <Route component={NotFound} />
-            </Switch>
-          </Layout>
-        </AuthRoute>
+        <ProtectedLayout><Home /></ProtectedLayout>
+      </Route>
+      <Route path="/entries">
+        <ProtectedLayout><Entries /></ProtectedLayout>
+      </Route>
+      <Route path="/credits">
+        <ProtectedLayout><Credits /></ProtectedLayout>
+      </Route>
+      <Route path="/profits">
+        <ProtectedLayout><Profits /></ProtectedLayout>
+      </Route>
+      <Route path="/reports">
+        <ProtectedLayout><Reports /></ProtectedLayout>
+      </Route>
+      <Route path="/backup">
+        <ProtectedLayout><Backup /></ProtectedLayout>
+      </Route>
+      <Route path="/settings">
+        <ProtectedLayout><Settings /></ProtectedLayout>
       </Route>
       <Route component={NotFound} />
     </Switch>
