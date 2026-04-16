@@ -117,7 +117,7 @@ export default function Login() {
             <BookOpen className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">LedgerEntries</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Sign in to manage your daily hisaab</p>
+          <p className="text-muted-foreground mt-1 text-sm">Sign in to manage your daily accounts</p>
         </div>
 
         <Card className="border-0 shadow-xl bg-card/50 backdrop-blur-sm sm:border sm:bg-card">
