@@ -94,6 +94,7 @@ export const ListEntriesQueryParams = zod.object({
   start_date: zod.coerce.string().optional(),
   end_date: zod.coerce.string().optional(),
   deleted: zod.coerce.boolean().optional(),
+  has_customer: zod.coerce.boolean().optional(),
 });
 
 export const ListEntriesResponseItem = zod.object({

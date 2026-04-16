@@ -69,6 +69,9 @@ router.get("/entries", requireAuth, async (req, res): Promise<void> => {
       conditions.push(gte(entriesTable.entryDate, start));
       conditions.push(lte(entriesTable.entryDate, end));
     }
+    if (qp.data.has_customer === true) {
+      conditions.push(isNotNull(entriesTable.customerName));
+    }
   }
 
   const entries = await db

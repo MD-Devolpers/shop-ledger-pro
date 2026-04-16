@@ -7,6 +7,7 @@ import {
   useDeleteCredit,
   useListCustomers,
   useCreateEntry,
+  useListEntries,
   getListCreditsQueryKey,
   getGetReportSummaryQueryKey,
   getListEntriesQueryKey,
@@ -74,6 +75,17 @@ type Credit = {
   status: string;
   dueDate?: string | null;
   createdAt: string;
+};
+
+type LedgerEntry = {
+  id: number;
+  type: string;
+  amount: number;
+  description?: string | null;
+  paymentMethod: string;
+  isCredit: boolean;
+  customerName?: string | null;
+  entryDate: string;
 };
 
 // ── Single credit entry card ──────────────────────────────────────────────────
@@ -181,12 +193,14 @@ function CreditCard({
 function CustomerReportCard({
   customerName,
   credits,
+  ledgerEntries,
   onMarkPaid,
   onDelete,
   onReceivePayment,
 }: {
   customerName: string;
   credits: Credit[];
+  ledgerEntries: LedgerEntry[];
   onMarkPaid: (id: number) => void;
   onDelete: (id: number) => void;
   onReceivePayment: (credit: Credit) => void;
@@ -283,92 +297,159 @@ function CustomerReportCard({
             </div>
           </div>
 
-          {/* Individual entries list */}
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1 mb-1">
-            All Entries ({credits.length})
+          {/* Unified chronological timeline */}
+          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1 mb-2">
+            Full Transaction History ({credits.length + ledgerEntries.length} entries)
           </p>
-          {credits
-            .slice()
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            .map((credit) => (
-              <div
-                key={credit.id}
-                className="bg-card border rounded-lg px-3 py-2.5 flex items-center justify-between gap-2"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <Badge
-                      className={`text-[10px] px-1.5 py-0 h-4 border-0 ${
-                        credit.status === "paid"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-amber-100 text-amber-700"
-                      }`}
-                    >
-                      {credit.status === "paid" ? "Paid" : "Pending"}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={`text-[10px] px-1.5 py-0 h-4 ${
-                        credit.type === "given"
-                          ? "text-red-600 border-red-200"
-                          : "text-green-600 border-green-200"
-                      }`}
-                    >
-                      {credit.type === "given" ? "Given" : "Received"}
-                    </Badge>
-                  </div>
-                  {credit.description && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                      {credit.description}
-                    </p>
-                  )}
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    {format(new Date(credit.createdAt), "MMM d, yyyy")}
-                    {credit.dueDate &&
-                      ` · Due: ${format(new Date(credit.dueDate), "MMM d, yyyy")}`}
-                  </p>
+
+          {/* Build combined timeline: credit records + ledger entries */}
+          {(() => {
+            type TimelineItem =
+              | { kind: "credit"; data: Credit; date: Date }
+              | { kind: "entry"; data: LedgerEntry; date: Date };
+
+            const items: TimelineItem[] = [
+              ...credits.map((c) => ({ kind: "credit" as const, data: c, date: new Date(c.createdAt) })),
+              ...ledgerEntries.map((e) => ({ kind: "entry" as const, data: e, date: new Date(e.entryDate) })),
+            ].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+            if (items.length === 0) {
+              return (
+                <div className="text-center py-4 text-xs text-muted-foreground">
+                  Koi transaction nahi mili
                 </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <p
-                    className={`font-bold text-sm ${
-                      credit.type === "given" ? "text-red-600" : "text-green-600"
+              );
+            }
+
+            return items.map((item, idx) => {
+              if (item.kind === "credit") {
+                const credit = item.data;
+                return (
+                  <div
+                    key={`credit-${credit.id}`}
+                    className="bg-card border rounded-lg px-3 py-2.5 flex items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-100 text-blue-700 border-0">
+                          Credit Record
+                        </Badge>
+                        <Badge
+                          className={`text-[10px] px-1.5 py-0 h-4 border-0 ${
+                            credit.status === "paid"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {credit.status === "paid" ? "Paid" : "Pending"}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1.5 py-0 h-4 ${
+                            credit.type === "given"
+                              ? "text-red-600 border-red-200"
+                              : "text-green-600 border-green-200"
+                          }`}
+                        >
+                          {credit.type === "given" ? "Given" : "Received"}
+                        </Badge>
+                      </div>
+                      {credit.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{credit.description}</p>
+                      )}
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {format(item.date, "MMM d, yyyy h:mm a")}
+                        {credit.dueDate && ` · Due: ${format(new Date(credit.dueDate), "MMM d")}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <p className={`font-bold text-sm ${credit.type === "given" ? "text-red-600" : "text-green-600"}`}>
+                        {formatCurrency(credit.amount)}
+                      </p>
+                      {credit.status === "pending" && credit.type === "given" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px] border-green-300 text-green-700 hover:bg-green-50 gap-1 px-2"
+                          onClick={() => onReceivePayment(credit)}
+                        >
+                          <ArrowDownCircle className="h-3 w-3" />
+                          Pay
+                        </Button>
+                      )}
+                      {credit.status === "pending" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-green-600 hover:bg-green-50"
+                          onClick={() => onMarkPaid(credit.id)}
+                          title="Mark paid"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive"
+                        onClick={() => onDelete(credit.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              } else {
+                const entry = item.data;
+                const isPayment = entry.description?.toLowerCase().includes("payment received");
+                return (
+                  <div
+                    key={`entry-${entry.id}`}
+                    className={`border rounded-lg px-3 py-2.5 flex items-center justify-between gap-2 ${
+                      isPayment ? "bg-green-50 border-green-200" : "bg-card"
                     }`}
                   >
-                    {formatCurrency(credit.amount)}
-                  </p>
-                  {credit.status === "pending" && credit.type === "given" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-[11px] border-green-300 text-green-700 hover:bg-green-50 gap-1 px-2"
-                      onClick={() => onReceivePayment(credit)}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge
+                          className={`text-[10px] px-1.5 py-0 h-4 border-0 ${
+                            isPayment
+                              ? "bg-green-100 text-green-700"
+                              : entry.type === "cash_in"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {isPayment ? "Payment Received" : entry.type === "cash_in" ? "Cash In" : "Cash Out"}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-slate-500">
+                          {entry.paymentMethod === "digital" ? "Digital" : "Cash"}
+                        </Badge>
+                        {entry.isCredit && (
+                          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 border-0">
+                            Credit Entry
+                          </Badge>
+                        )}
+                      </div>
+                      {entry.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{entry.description}</p>
+                      )}
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {format(item.date, "MMM d, yyyy h:mm a")}
+                      </p>
+                    </div>
+                    <p
+                      className={`font-bold text-sm flex-shrink-0 ${
+                        entry.type === "cash_in" ? "text-green-600" : "text-red-600"
+                      }`}
                     >
-                      <ArrowDownCircle className="h-3 w-3" />
-                      Pay
-                    </Button>
-                  )}
-                  {credit.status === "pending" && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-green-600 hover:bg-green-50"
-                      onClick={() => onMarkPaid(credit.id)}
-                      title="Mark paid"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-destructive"
-                    onClick={() => onDelete(credit.id)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+                      {entry.type === "cash_in" ? "+" : "-"}{formatCurrency(entry.amount)}
+                    </p>
+                  </div>
+                );
+              }
+            });
+          })()}
         </div>
       )}
     </div>
@@ -398,6 +479,7 @@ export default function Credits() {
   const updateCredit = useUpdateCredit();
   const deleteCredit = useDeleteCredit();
   const createEntry = useCreateEntry();
+  const { data: allCustomerEntries } = useListEntries({ has_customer: true });
 
   const form = useForm<z.infer<typeof creditSchema>>({
     resolver: zodResolver(creditSchema),
@@ -441,6 +523,21 @@ export default function Credits() {
       customerMap.get(existing)!.push(c);
     } else {
       customerMap.set(c.customerName.trim(), [c]);
+    }
+  }
+
+  // Group all customer-linked ledger entries by customerName
+  const customerEntriesMap = new Map<string, LedgerEntry[]>();
+  for (const e of allCustomerEntries ?? []) {
+    if (!e.customerName) continue;
+    const key = e.customerName.trim().toLowerCase();
+    const existing = [...customerEntriesMap.keys()].find(
+      (k) => k.toLowerCase() === key
+    );
+    if (existing) {
+      customerEntriesMap.get(existing)!.push(e as LedgerEntry);
+    } else {
+      customerEntriesMap.set(e.customerName.trim(), [e as LedgerEntry]);
     }
   }
 
@@ -515,7 +612,7 @@ export default function Credits() {
           description: `Credit payment received from ${selectedCredit.customerName}`,
           paymentMethod: data.paymentMethod,
           isCredit: false,
-          customerName: null,
+          customerName: selectedCredit.customerName,
         },
       },
       {
@@ -829,6 +926,14 @@ export default function Credits() {
                     key={name}
                     customerName={name}
                     credits={customerCredits}
+                    ledgerEntries={
+                      (() => {
+                        const match = [...customerEntriesMap.entries()].find(
+                          ([k]) => k.toLowerCase() === name.toLowerCase()
+                        );
+                        return match ? match[1] : [];
+                      })()
+                    }
                     onMarkPaid={handleMarkPaid}
                     onDelete={handleDelete}
                     onReceivePayment={openReceivePayment}
