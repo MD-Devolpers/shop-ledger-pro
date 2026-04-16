@@ -153,7 +153,7 @@ export default function Profits() {
     );
   };
 
-  const allEntries = report?.entriesWithProfit ?? [];
+  const allEntries = (report?.entriesWithProfit ?? []).filter((e) => !isCreditPayment(e));
   const profitEntries = allEntries.filter((e) => e.profit != null);
   const totalProfit = report?.totalProfit ?? 0;
 
