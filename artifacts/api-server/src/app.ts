@@ -18,6 +18,10 @@ declare module "express" {
 
 const app: Express = express();
 
+// Trust the first proxy (Render, Railway, etc.) so req.secure works correctly
+// and cookie-session saves the session over HTTPS connections
+app.set("trust proxy", 1);
+
 // ── Security headers (helmet) ──────────────────────────────────────────────
 app.use(
   helmet({
