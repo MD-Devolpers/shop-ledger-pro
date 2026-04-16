@@ -9,29 +9,23 @@ router.get("/customers", requireAuth, async (req, res): Promise<void> => {
   const userId = req.session!.userId!;
   const q = req.query.q as string | undefined;
 
-  let query = db
+  const baseWhere = q
+    ? and(
+        eq(creditsTable.userId, userId),
+        eq(creditsTable.status, "pending"),
+        ilike(creditsTable.customerName, `%${q}%`)
+      )
+    : and(eq(creditsTable.userId, userId), eq(creditsTable.status, "pending"));
+
+  const customers = await db
     .select({
       id: sql<number>`min(${creditsTable.id})`.as("id"),
       name: creditsTable.customerName,
       totalCredit: sql<number>`sum(${creditsTable.amount})`.as("totalCredit"),
     })
     .from(creditsTable)
-    .where(eq(creditsTable.userId, userId))
+    .where(baseWhere)
     .groupBy(creditsTable.customerName);
-
-  if (q) {
-    query = db
-      .select({
-        id: sql<number>`min(${creditsTable.id})`.as("id"),
-        name: creditsTable.customerName,
-        totalCredit: sql<number>`sum(${creditsTable.amount})`.as("totalCredit"),
-      })
-      .from(creditsTable)
-      .where(and(eq(creditsTable.userId, userId), ilike(creditsTable.customerName, `%${q}%`)))
-      .groupBy(creditsTable.customerName);
-  }
-
-  const customers = await query;
 
   res.json(
     customers.map((c) => ({
