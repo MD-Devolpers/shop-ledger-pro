@@ -191,7 +191,7 @@ function CustomerReportCard({
   onDelete: (id: number) => void;
   onReceivePayment: (credit: Credit) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   const pendingGiven = credits
     .filter((c) => c.type === "given" && c.status === "pending")
