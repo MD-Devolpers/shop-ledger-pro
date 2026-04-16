@@ -197,6 +197,7 @@ function CustomerReportCard({
   onMarkPaid,
   onDelete,
   onReceivePayment,
+  onDeleteCustomer,
 }: {
   customerName: string;
   credits: Credit[];
@@ -204,8 +205,10 @@ function CustomerReportCard({
   onMarkPaid: (id: number) => void;
   onDelete: (id: number) => void;
   onReceivePayment: (credit: Credit) => void;
+  onDeleteCustomer: (credits: Credit[]) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const pendingGiven = credits
     .filter((c) => c.type === "given" && c.status === "pending")
@@ -450,6 +453,43 @@ function CustomerReportCard({
               }
             });
           })()}
+
+          {/* Delete customer row */}
+          <div className="pt-2 border-t mt-2">
+            {!confirmDelete ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive text-xs h-8 gap-1.5"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete Customer ({credits.length} credit records)
+              </Button>
+            ) : (
+              <div className="flex items-center gap-2 bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2">
+                <p className="text-xs text-destructive flex-1 font-medium">
+                  {customerName} ke saare {credits.length} credit records delete ho jayenge?
+                </p>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="h-7 text-[11px] px-2"
+                  onClick={() => { onDeleteCustomer(credits); setConfirmDelete(false); }}
+                >
+                  Haan
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px] px-2"
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Nahi
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -683,6 +723,31 @@ export default function Credits() {
         },
       }
     );
+  };
+
+  const handleDeleteCustomer = (customerCredits: Credit[]) => {
+    let remaining = customerCredits.length;
+    if (remaining === 0) return;
+    customerCredits.forEach((credit) => {
+      deleteCredit.mutate(
+        { id: credit.id },
+        {
+          onSuccess: () => {
+            remaining -= 1;
+            if (remaining === 0) {
+              invalidateAll();
+              toast({
+                title: "Customer deleted",
+                description: `${customerCredits[0].customerName} ke saare credit records hata diye.`,
+              });
+            }
+          },
+          onError: () => {
+            toast({ title: "Delete failed", variant: "destructive" });
+          },
+        }
+      );
+    });
   };
 
   const totalGiven =
@@ -937,6 +1002,7 @@ export default function Credits() {
                     onMarkPaid={handleMarkPaid}
                     onDelete={handleDelete}
                     onReceivePayment={openReceivePayment}
+                    onDeleteCustomer={handleDeleteCustomer}
                   />
                 ))}
               </div>
