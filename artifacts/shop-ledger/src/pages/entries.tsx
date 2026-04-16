@@ -218,7 +218,7 @@ export default function Entries() {
         {/* Data saved banner */}
         <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 mb-3">
           <CloudCheck className="h-4 w-4 flex-shrink-0" />
-          <span>Aapka data server par save hai. Logout ke baad bhi safe rahega.</span>
+          <span>Your data is saved on the server and stays safe even after logout.</span>
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
@@ -246,7 +246,7 @@ export default function Entries() {
           {tab === "bin" && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2 mb-3">
               <RotateCcw className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>Delete ki gayi entries yahan hain. Restore karein wapis lene ke liye.</span>
+              <span>Deleted entries are here. Restore them to move them back to your ledger.</span>
             </div>
           )}
 

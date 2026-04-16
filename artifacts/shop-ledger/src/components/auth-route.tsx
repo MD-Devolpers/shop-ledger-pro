@@ -77,9 +77,9 @@ export function AuthRoute({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-700 text-left space-y-1">
-              <p className="font-semibold">Inbox check karein:</p>
-              <p>• Gmail inbox ya Spam/Junk folder mein dekhen</p>
-              <p>• Link 24 ghante tak valid hai</p>
+              <p className="font-semibold">Check your inbox:</p>
+              <p>• Look in your Gmail inbox or Spam/Junk folder</p>
+              <p>• The link is valid for 24 hours</p>
             </div>
 
             <Button className="w-full gap-2" onClick={handleResend}>

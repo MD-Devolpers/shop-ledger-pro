@@ -667,7 +667,7 @@ export default function Credits() {
                   setSelectedCredit(null);
                   toast({
                     title: "Payment received!",
-                    description: `${formatCurrency(received)} — ${selectedCredit.customerName} ka credit fully cleared.`,
+                    description: `${formatCurrency(received)} — ${selectedCredit.customerName}'s credit fully cleared.`,
                   });
                 },
               }
@@ -738,7 +738,7 @@ export default function Credits() {
               invalidateAll();
               toast({
                 title: "Customer deleted",
-                description: `${customerCredits[0].customerName} ke saare credit records hata diye.`,
+                description: `All credit records for ${customerCredits[0].customerName} have been deleted.`,
               });
             }
           },
@@ -907,7 +907,7 @@ export default function Credits() {
             {receivedCredits.length > 0 && (
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <div className="bg-orange-50 border border-orange-100 rounded-xl p-3">
-                  <p className="text-[11px] text-orange-600 font-medium">Aap ko dena hai</p>
+                  <p className="text-[11px] text-orange-600 font-medium">You Owe</p>
                   <p className="text-base font-bold text-orange-700">{formatCurrency(totalReceived)}</p>
                   <p className="text-[10px] text-orange-400">Pending amount</p>
                 </div>
