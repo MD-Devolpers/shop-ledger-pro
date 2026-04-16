@@ -113,8 +113,8 @@ export default function Signup() {
                 <p className="flex items-center gap-1 font-semibold">
                   <CheckCircle2 className="h-3.5 w-3.5" /> Account created!
                 </p>
-                <p>Email verify karo taakay dashboard access ho sake.</p>
-                <p>Spam/Junk folder bhi zaroor dekhen.</p>
+                <p>Please verify your email to access the dashboard.</p>
+                <p>Check your Spam/Junk folder if you don't see it.</p>
               </div>
               <Button
                 variant="outline"

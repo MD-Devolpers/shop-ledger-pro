@@ -319,7 +319,7 @@ function CustomerReportCard({
             if (items.length === 0) {
               return (
                 <div className="text-center py-4 text-xs text-muted-foreground">
-                  Koi transaction nahi mili
+                  No transactions found
                 </div>
               );
             }
@@ -469,7 +469,7 @@ function CustomerReportCard({
             ) : (
               <div className="flex items-center gap-2 bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2">
                 <p className="text-xs text-destructive flex-1 font-medium">
-                  {customerName} ke saare {credits.length} credit records delete ho jayenge?
+                  Delete all {credits.length} credit record{credits.length !== 1 ? "s" : ""} for {customerName}?
                 </p>
                 <Button
                   variant="destructive"
@@ -683,7 +683,7 @@ export default function Credits() {
                   setSelectedCredit(null);
                   toast({
                     title: "Partial payment received!",
-                    description: `${formatCurrency(received)} receive hua. Baki bakaya: ${formatCurrency(remaining)}`,
+                    description: `${formatCurrency(received)} received. Remaining balance: ${formatCurrency(remaining)}`,
                   });
                 },
               }
@@ -758,12 +758,17 @@ export default function Credits() {
     credits
       ?.filter((c) => c.type === "received" && c.status === "pending")
       .reduce((sum, c) => sum + c.amount, 0) ?? 0;
+  // All-time totals (pending + paid combined)
+  const allTimeGiven =
+    credits?.filter((c) => c.type === "given").reduce((sum, c) => sum + c.amount, 0) ?? 0;
+  const allTimeReceived =
+    credits?.filter((c) => c.type === "received").reduce((sum, c) => sum + c.amount, 0) ?? 0;
 
   return (
     <div className="flex flex-col h-full">
       <div className="sticky top-0 bg-background/95 backdrop-blur border-b z-10 px-4 py-3 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">Credits / Khata</h1>
+          <h1 className="text-xl font-bold">Credits</h1>
           <p className="text-xs text-muted-foreground">Track customer credit accounts</p>
         </div>
         <Button size="sm" onClick={() => setDialogOpen(true)} data-testid="button-add-credit">
@@ -774,7 +779,7 @@ export default function Credits() {
 
       <div className="flex-1 overflow-auto p-4">
         {/* Summary */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-2 gap-3 mb-3">
           <div className="bg-red-50 border border-red-100 rounded-xl p-3">
             <p className="text-xs text-red-600 font-medium">Pending Given</p>
             <p className="text-lg font-bold text-red-700">{formatCurrency(totalGiven)}</p>
@@ -783,7 +788,28 @@ export default function Credits() {
           <div className="bg-green-50 border border-green-100 rounded-xl p-3">
             <p className="text-xs text-green-600 font-medium">Pending Received</p>
             <p className="text-lg font-bold text-green-700">{formatCurrency(totalReceived)}</p>
-            <p className="text-[10px] text-green-400 mt-0.5">You owe customer</p>
+            <p className="text-[10px] text-green-400 mt-0.5">You owe supplier</p>
+          </div>
+        </div>
+
+        {/* Total Credit Overview (all-time: old + new) */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Total Credit Overview (All Time)</p>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="text-center">
+              <p className="text-[10px] text-slate-400">Total Given</p>
+              <p className="text-sm font-bold text-red-600">{formatCurrency(allTimeGiven)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] text-slate-400">Total Taken</p>
+              <p className="text-sm font-bold text-orange-600">{formatCurrency(allTimeReceived)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[10px] text-slate-400">Net Due</p>
+              <p className={`text-sm font-bold ${allTimeGiven - allTimeReceived >= 0 ? "text-primary" : "text-red-600"}`}>
+                {formatCurrency(Math.abs(allTimeGiven - allTimeReceived))}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -816,7 +842,7 @@ export default function Credits() {
             {filteredGiven.some((c) => c.status === "pending") && (
               <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-2">
                 <ArrowDownCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                <span>"Receive" dabao jab customer paisa dey — cash ya digital mein add ho jayega.</span>
+                <span>Press "Receive" when the customer pays — amount will be added to cash or digital balance.</span>
               </div>
             )}
             {/* Paid history toggle */}
@@ -826,9 +852,9 @@ export default function Credits() {
                 onClick={() => setShowPaidGiven((v) => !v)}
               >
                 {showPaidGiven ? (
-                  <><EyeOff className="h-3.5 w-3.5" /> Paid credits chhupao ({paidGivenCount})</>
+                  <><EyeOff className="h-3.5 w-3.5" /> Hide paid credits ({paidGivenCount})</>
                 ) : (
-                  <><Eye className="h-3.5 w-3.5" /> Paid history bhi dikhao ({paidGivenCount})</>
+                  <><Eye className="h-3.5 w-3.5" /> Show paid history ({paidGivenCount})</>
                 )}
               </button>
             )}
@@ -843,15 +869,15 @@ export default function Credits() {
                 <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
                 <p className="font-medium">
                   {givenCredits.length > 0
-                    ? "Sab credits paid ho gaye! 🎉"
-                    : "Koi given credit nahi"}
+                    ? "All credits paid! 🎉"
+                    : "No given credits yet"}
                 </p>
                 {givenCredits.length > 0 && !showPaidGiven && (
                   <button
                     className="text-xs text-primary mt-2 underline"
                     onClick={() => setShowPaidGiven(true)}
                   >
-                    History dekhein
+                    View history
                   </button>
                 )}
               </div>
@@ -905,9 +931,9 @@ export default function Credits() {
                 onClick={() => setShowPaidReceived((v) => !v)}
               >
                 {showPaidReceived ? (
-                  <><EyeOff className="h-3.5 w-3.5" /> Paid credits chhupao ({paidReceivedCount})</>
+                  <><EyeOff className="h-3.5 w-3.5" /> Hide paid credits ({paidReceivedCount})</>
                 ) : (
-                  <><Eye className="h-3.5 w-3.5" /> Paid history bhi dikhao ({paidReceivedCount})</>
+                  <><Eye className="h-3.5 w-3.5" /> Show paid history ({paidReceivedCount})</>
                 )}
               </button>
             )}
@@ -924,22 +950,22 @@ export default function Credits() {
                   <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-3">
                     <ArrowDownCircle className="h-6 w-6 text-orange-500" />
                   </div>
-                  <p className="font-semibold text-sm text-orange-800 mb-1">Aap ka Udhar (Credit Liya)</p>
+                  <p className="font-semibold text-sm text-orange-800 mb-1">Credit Taken (You Owe)</p>
                   <p className="text-xs text-orange-600 leading-relaxed">
-                    Jab aap ne kisi supplier ya dukan se cheez credit par li ho — yahan record rakho. Yeh woh paisa hai <strong>jo aap ne dena hota hai</strong>.
+                    When you receive goods from a supplier on credit — record it here. This is money <strong>you owe to others</strong>.
                   </p>
                 </div>
 
                 {/* How to add */}
                 <div className="bg-card border rounded-xl p-3 space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Kaise add karein?</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">How to add?</p>
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
                     <span className="h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                    <p><strong>Manual:</strong> Upar "＋ Add Credit" button dabao aur type "Received (Aap ne liya)" select karo</p>
+                    <p><strong>Manual:</strong> Tap "+ Add Credit" above and select type "Received (You Took)"</p>
                   </div>
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
                     <span className="h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                    <p><strong>Auto:</strong> Home screen par Cash Out karte waqt "Mark as Credit" toggle on karo — yahan automatically add ho jayega</p>
+                    <p><strong>Auto:</strong> On the home screen, add a Cash Out entry and toggle "Mark as Credit" — it will appear here automatically</p>
                   </div>
                 </div>
 
@@ -953,13 +979,13 @@ export default function Credits() {
                   }}
                 >
                   <Plus className="h-4 w-4" />
-                  Abhi Credit Liya Add Karein
+                  Add Received Credit Now
                 </Button>
               </div>
             ) : filteredReceived.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <p className="font-medium text-green-600">Sab cleared! 🎉</p>
-                <p className="text-xs mt-1">Koi pending received credit nahi</p>
+                <p className="font-medium text-green-600">All cleared! 🎉</p>
+                <p className="text-xs mt-1">No pending received credits</p>
                 {!showPaidReceived && (
                   <button
                     className="text-xs text-primary mt-2 underline"
@@ -993,7 +1019,7 @@ export default function Credits() {
           <TabsContent value="customers" className="mt-0">
             <div className="mb-3">
               <Input
-                placeholder="Customer name search karo..."
+                placeholder="Search by customer name..."
                 value={reportSearch}
                 onChange={(e) => setReportSearch(e.target.value)}
                 className="h-9 text-sm"
@@ -1011,7 +1037,7 @@ export default function Credits() {
               <div className="text-center py-16 text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
                 <p className="font-medium">
-                  {reportSearch ? "Koi customer nahi mila" : "Abhi koi credit nahi"}
+                  {reportSearch ? "No customer found" : "No credits added yet"}
                 </p>
               </div>
             ) : (
@@ -1118,13 +1144,13 @@ export default function Credits() {
                     <FormMessage />
                     {field.value > 0 && selectedCredit && field.value < selectedCredit.amount && (
                       <p className="text-xs text-amber-600 mt-1">
-                        Partial payment — Baki rahega:{" "}
+                        Partial payment — Remaining:{" "}
                         <strong>{formatCurrency(selectedCredit.amount - Number(field.value))}</strong>
                       </p>
                     )}
                     {field.value > 0 && selectedCredit && Number(field.value) >= selectedCredit.amount && (
                       <p className="text-xs text-green-600 mt-1">
-                        Full payment — Credit mark as <strong>Paid</strong> ho jayega ✓
+                        Full payment — Credit will be marked as <strong>Paid</strong> ✓
                       </p>
                     )}
                   </FormItem>
@@ -1137,7 +1163,7 @@ export default function Credits() {
                 name="paymentMethod"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Paisa kahan receive hua?</FormLabel>
+                    <FormLabel>Payment received via?</FormLabel>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
@@ -1169,8 +1195,8 @@ export default function Credits() {
                     <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
                       <Wallet className="h-3 w-3" />
                       {field.value === "cash"
-                        ? "Yeh amount Cash balance mein add ho jayega"
-                        : "Yeh amount Digital balance mein add ho jayega"}
+                        ? "This amount will be added to Cash balance"
+                        : "This amount will be added to Digital balance"}
                     </p>
                   </FormItem>
                 )}
@@ -1185,7 +1211,7 @@ export default function Credits() {
                 {(createEntry.isPending || updateCredit.isPending) && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
-                Payment Record Karo
+                Record Payment
               </Button>
             </form>
           </Form>
@@ -1197,7 +1223,7 @@ export default function Credits() {
         <DialogContent className="sm:max-w-md" data-testid="add-credit-dialog">
           <DialogHeader>
             <DialogTitle>Add Credit Entry</DialogTitle>
-            <DialogDescription>Customer ka credit record add karo</DialogDescription>
+            <DialogDescription>Add a credit record for a customer or supplier</DialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

@@ -246,7 +246,7 @@ export default function Landing() {
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold mb-3">Start Tracking Today</h2>
           <p className="text-muted-foreground mb-7">
-            Join shop owners who trust LedgerEntries for their daily hisaab.
+            Join shop owners who trust LedgerEntries for their daily accounting.
           </p>
           <Link href="/signup">
             <Button size="lg" className="w-full sm:w-auto gap-2 text-base h-12 px-10 shadow-lg">

@@ -161,7 +161,7 @@ export default function Profits() {
     <div className="flex flex-col h-full">
       <div className="sticky top-0 bg-background/95 backdrop-blur border-b z-10 px-4 py-3">
         <h1 className="text-xl font-bold">Profit Tracker</h1>
-        <p className="text-xs text-muted-foreground">Har entry ka profit record karo</p>
+        <p className="text-xs text-muted-foreground">Record profit per entry</p>
       </div>
 
       <div className="flex-1 overflow-auto p-4">
@@ -169,11 +169,11 @@ export default function Profits() {
           <TabsList className="w-full mb-4 grid grid-cols-2">
             <TabsTrigger value="daily" data-testid="tab-today-profit">
               <CalendarDays className="h-3.5 w-3.5 mr-1.5" />
-              Aaj (Today)
+              Today
             </TabsTrigger>
             <TabsTrigger value="yesterday" data-testid="tab-yesterday-profit">
               <Calendar className="h-3.5 w-3.5 mr-1.5" />
-              Kal (Yesterday)
+              Yesterday
             </TabsTrigger>
           </TabsList>
 
@@ -187,7 +187,7 @@ export default function Profits() {
                 {/* Total Profit Card */}
                 <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 mb-4">
                   <p className="text-sm text-primary font-medium">
-                    Total Profit — {period === "daily" ? "Aaj" : "Kal"}
+                    Total Profit — {period === "daily" ? "Today" : "Yesterday"}
                   </p>
                   <p className="text-3xl font-bold text-primary mt-1" data-testid="total-profit-display">
                     {formatCurrency(totalProfit)}
@@ -196,7 +196,7 @@ export default function Profits() {
                     <p className="text-xs text-muted-foreground mt-1">
                       {format(new Date(report.startDate), "MMM d, yyyy")}
                       {" · "}
-                      {profitEntries.length} entries mein profit set hai
+                      {profitEntries.length} entries with profit set
                     </p>
                   )}
                 </div>
@@ -204,16 +204,16 @@ export default function Profits() {
                 {/* All entries - set profit on any entry */}
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    {allEntries.length} entries — profit enter karo
+                    {allEntries.length} entries — enter profit below
                   </p>
                 </div>
                 <div className="space-y-2">
                   {allEntries.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
                       <p className="font-medium">
-                        {period === "daily" ? "Aaj koi entry nahi" : "Kal koi entry nahi thi"}
+                        {period === "daily" ? "No entries today" : "No entries yesterday"}
                       </p>
-                      <p className="text-sm">Home screen se entries add karo</p>
+                      <p className="text-sm">Add entries from the home screen</p>
                     </div>
                   ) : (
                     allEntries

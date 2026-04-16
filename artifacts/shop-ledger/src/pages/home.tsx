@@ -222,9 +222,13 @@ export default function Home() {
           </p>
         </div>
         <div className="bg-card border rounded-xl p-3 text-center">
-          <p className="text-xs text-muted-foreground">Credit Due</p>
+          <p className="text-xs text-muted-foreground">Today's Credit</p>
           <p className="text-lg font-bold text-amber-600" data-testid="total-credit">
-            {formatCurrency(summary?.totalCredit ?? 0)}
+            {formatCurrency(
+              (todayEntries ?? [])
+                .filter((e) => e.isCredit && e.type === "cash_in")
+                .reduce((s, e) => s + e.amount, 0)
+            )}
           </p>
         </div>
       </div>
@@ -379,13 +383,13 @@ export default function Home() {
                       <FormControl>
                         <Input
                           type="number"
-                          placeholder="Is sale mein kitna profit hua? (Optional)"
+                          placeholder="Profit on this sale? (Optional)"
                           {...field}
                           value={field.value ?? ""}
                           data-testid="input-profit"
                         />
                       </FormControl>
-                      <p className="text-[11px] text-muted-foreground">Profit Tracker mein automatically show hoga</p>
+                      <p className="text-[11px] text-muted-foreground">Will automatically appear in Profit Tracker</p>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -434,7 +438,7 @@ export default function Home() {
                 <>
                   <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                     <Handshake className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                    <span>Yeh entry automatically Credits page mein bhi save hogi. Purana customer select karo toh amount add ho jayega.</span>
+                    <span>This entry will also be saved on the Credits page. Selecting an existing customer will add to their existing balance.</span>
                   </div>
                   <FormField
                     control={form.control}
@@ -446,7 +450,7 @@ export default function Home() {
                           <FormControl>
                             <Input
                               ref={customerInputRef}
-                              placeholder="Customer ka naam likhein ya select karein..."
+                              placeholder="Type or select a customer name..."
                               {...field}
                               onChange={(e) => {
                                 field.onChange(e);
@@ -487,7 +491,7 @@ export default function Home() {
                           )}
                           {showCustomerDropdown && (!customers || customers.length === 0) && (
                             <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-xl shadow-lg p-3 text-xs text-muted-foreground">
-                              No existing customers. Naya naam likhen.
+                              No existing customers. Type a new name to create one.
                             </div>
                           )}
                         </div>

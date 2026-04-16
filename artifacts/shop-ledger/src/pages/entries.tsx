@@ -263,11 +263,11 @@ export default function Entries() {
                   {t === "bin" ? (
                     <>
                       <Trash className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                      <p className="font-medium">Recycle bin khali hai</p>
-                      <p className="text-xs mt-1">Delete ki gayi entries yahan aayengi</p>
+                      <p className="font-medium">Recycle bin is empty</p>
+                      <p className="text-xs mt-1">Deleted entries will appear here</p>
                     </>
                   ) : (
-                    <p className="font-medium">Koi entry nahi mili</p>
+                    <p className="font-medium">No entries found</p>
                   )}
                 </div>
               ) : (
