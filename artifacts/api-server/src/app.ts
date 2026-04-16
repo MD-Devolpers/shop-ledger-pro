@@ -102,10 +102,19 @@ app.use("/api", router);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, "public");
 
-if (process.env.NODE_ENV === "production" && existsSync(publicDir)) {
-  app.use(express.static(publicDir));
+if (process.env.NODE_ENV === "production") {
+  const indexHtml = path.resolve(publicDir, "index.html");
+  const publicExists = existsSync(publicDir);
+  const indexExists = existsSync(indexHtml);
+  logger.info({ publicDir, publicExists, indexExists }, "Static files check");
+
+  app.use(express.static(publicDir, { index: false }));
   app.use("/{*splat}", (_req: Request, res: Response) => {
-    res.sendFile(path.resolve(publicDir, "index.html"));
+    if (indexExists) {
+      res.sendFile(indexHtml);
+    } else {
+      res.status(503).send("Frontend not built. Please redeploy.");
+    }
   });
 } else {
   // ── 404 handler (dev only) ──────────────────────────────────────────────
