@@ -92,11 +92,15 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
         totalCashOut += amount;
       }
     } else {
+      // Digital: cash_out+digital means you gave cash & received digital (e.g. Jazz Cash agent)
+      // So digital always increases on cash_out+digital, decreases only on cash_in+digital
       if (entry.type === "cash_in") {
-        digitalBalance += amount;
+        cashBalance += amount;      // received cash from customer
+        digitalBalance -= amount;  // sent digital to customer
         totalCashIn += amount;
       } else {
-        digitalBalance -= amount;
+        cashBalance -= amount;     // gave cash to customer
+        digitalBalance += amount;  // received digital from customer
         totalCashOut += amount;
       }
     }
@@ -180,12 +184,20 @@ router.get("/reports/entries", requireAuth, async (req, res): Promise<void> => {
     const amount = parseFloat(entry.amount);
     if (entry.type === "cash_in") {
       cashIn += amount;
-      if (entry.paymentMethod === "cash") cashBalance += amount;
-      else digitalBalance += amount;
+      if (entry.paymentMethod === "cash") {
+        cashBalance += amount;
+      } else {
+        cashBalance += amount;      // received cash from customer
+        digitalBalance -= amount;  // sent digital to customer
+      }
     } else {
       cashOut += amount;
-      if (entry.paymentMethod === "cash") cashBalance -= amount;
-      else digitalBalance -= amount;
+      if (entry.paymentMethod === "cash") {
+        cashBalance -= amount;
+      } else {
+        cashBalance -= amount;     // gave cash to customer
+        digitalBalance += amount;  // received digital from customer
+      }
     }
   }
 
