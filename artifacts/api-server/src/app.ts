@@ -104,7 +104,7 @@ const publicDir = path.resolve(__dirname, "public");
 
 if (process.env.NODE_ENV === "production" && existsSync(publicDir)) {
   app.use(express.static(publicDir));
-  app.use("*", (_req: Request, res: Response) => {
+  app.use("/{*splat}", (_req: Request, res: Response) => {
     res.sendFile(path.resolve(publicDir, "index.html"));
   });
 } else {
