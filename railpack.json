@@ -7,7 +7,7 @@
       "cp -r artifacts/shop-ledger/dist/public/. artifacts/api-server/dist/public/"
     ]
   },
-  "start": {
-    "cmd": "sh start-railway.sh"
+  "deploy": {
+    "startCmd": "sh start-railway.sh"
   }
 }
