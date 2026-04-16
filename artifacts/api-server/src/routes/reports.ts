@@ -13,6 +13,11 @@ function getDateRange(period: string, date?: string): { start: Date; end: Date }
   if (period === "daily") {
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
+  } else if (period === "yesterday") {
+    start.setDate(ref.getDate() - 1);
+    start.setHours(0, 0, 0, 0);
+    end.setDate(ref.getDate() - 1);
+    end.setHours(23, 59, 59, 999);
   } else if (period === "weekly") {
     const day = ref.getDay();
     start.setDate(ref.getDate() - day);
@@ -201,8 +206,8 @@ router.get("/reports/profit", requireAuth, async (req, res): Promise<void> => {
   const period = req.query.period as string;
   const date = req.query.date as string | undefined;
 
-  if (!period || !["daily", "weekly", "monthly"].includes(period)) {
-    res.status(400).json({ error: "Invalid period. Use daily, weekly, or monthly" });
+  if (!period || !["daily", "weekly", "monthly", "yesterday"].includes(period)) {
+    res.status(400).json({ error: "Invalid period. Use daily, weekly, monthly, or yesterday" });
     return;
   }
 

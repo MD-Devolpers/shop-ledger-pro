@@ -121,6 +121,7 @@ export const CreateEntryBody = zod.object({
   amount: zod.number(),
   description: zod.string().nullish(),
   paymentMethod: zod.enum(["cash", "digital"]),
+  profit: zod.number().nullish(),
   isCredit: zod.boolean().optional(),
   customerName: zod.string().nullish(),
   entryDate: zod.string().nullish(),
@@ -396,7 +397,7 @@ export const GetEntriesReportResponse = zod.object({
  * @summary Get profit report for a period
  */
 export const GetProfitReportQueryParams = zod.object({
-  period: zod.enum(["daily", "weekly", "monthly"]),
+  period: zod.enum(["daily", "weekly", "monthly", "yesterday"]),
   date: zod.coerce.string().optional(),
 });
 

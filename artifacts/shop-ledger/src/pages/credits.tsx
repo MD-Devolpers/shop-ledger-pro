@@ -715,6 +715,27 @@ export default function Credits() {
 
           {/* ── Received tab ── */}
           <TabsContent value="received" className="space-y-2 mt-0">
+            {/* Received balance card */}
+            {receivedCredits.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="bg-orange-50 border border-orange-100 rounded-xl p-3">
+                  <p className="text-[11px] text-orange-600 font-medium">Aap ko dena hai</p>
+                  <p className="text-base font-bold text-orange-700">{formatCurrency(totalReceived)}</p>
+                  <p className="text-[10px] text-orange-400">Pending amount</p>
+                </div>
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+                  <p className="text-[11px] text-slate-600 font-medium">Cleared</p>
+                  <p className="text-base font-bold text-slate-700">
+                    {formatCurrency(
+                      receivedCredits
+                        .filter((c) => c.status === "paid")
+                        .reduce((s, c) => s + c.amount, 0)
+                    )}
+                  </p>
+                  <p className="text-[10px] text-slate-400">{paidReceivedCount} paid</p>
+                </div>
+              </div>
+            )}
             {/* Paid history toggle */}
             {paidReceivedCount > 0 && (
               <button
@@ -734,15 +755,17 @@ export default function Credits() {
                   <div key={i} className="h-20 bg-card border rounded-xl animate-pulse" />
                 ))}
               </div>
-            ) : filteredReceived.length === 0 ? (
+            ) : receivedCredits.length === 0 ? (
               <div className="text-center py-16 text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">
-                  {receivedCredits.length > 0
-                    ? "Sab cleared! 🎉"
-                    : "Koi received credit nahi"}
-                </p>
-                {receivedCredits.length > 0 && !showPaidReceived && (
+                <p className="font-medium">Koi received credit nahi</p>
+                <p className="text-xs mt-1">Yahan woh credits show hote hain jo aap ne kisi se liye hain</p>
+              </div>
+            ) : filteredReceived.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="font-medium text-green-600">Sab cleared! 🎉</p>
+                <p className="text-xs mt-1">Koi pending received credit nahi</p>
+                {!showPaidReceived && (
                   <button
                     className="text-xs text-primary mt-2 underline"
                     onClick={() => setShowPaidReceived(true)}

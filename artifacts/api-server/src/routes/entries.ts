@@ -88,7 +88,7 @@ router.post("/entries", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const { type, amount, description, paymentMethod, isCredit, customerName, entryDate } = parsed.data;
+  const { type, amount, description, paymentMethod, profit, isCredit, customerName, entryDate } = parsed.data;
 
   const [entry] = await db
     .insert(entriesTable)
@@ -98,6 +98,7 @@ router.post("/entries", requireAuth, async (req, res): Promise<void> => {
       amount: amount.toString(),
       description: description ?? null,
       paymentMethod: paymentMethod ?? "cash",
+      profit: profit != null ? profit.toString() : null,
       isCredit: isCredit ?? false,
       customerName: customerName ?? null,
       entryDate: entryDate ? new Date(entryDate) : new Date(),

@@ -26,6 +26,7 @@ import EditEntryDialog from "@/components/edit-entry-dialog";
 const entrySchema = z.object({
   amount: z.coerce.number().positive("Amount must be positive"),
   description: z.string().optional(),
+  profit: z.coerce.number().optional(),
   paymentMethod: z.enum(["cash", "digital"]),
   isCredit: z.boolean().default(false),
   customerName: z.string().optional(),
@@ -82,7 +83,7 @@ export default function Home() {
 
   const openDialog = (type: "cash_in" | "cash_out") => {
     setEntryType(type);
-    form.reset({ amount: 0, description: "", paymentMethod: "cash", isCredit: false, customerName: "" });
+    form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: "cash", isCredit: false, customerName: "" });
     setCustomerSearch("");
     setShowCustomerDropdown(false);
     setDialogOpen(true);
@@ -95,6 +96,7 @@ export default function Home() {
           type: entryType,
           amount: data.amount,
           description: data.description || null,
+          profit: data.profit != null && data.profit > 0 ? data.profit : null,
           paymentMethod: data.paymentMethod,
           isCredit: data.isCredit,
           customerName: data.isCredit ? (data.customerName || null) : null,
@@ -352,6 +354,31 @@ export default function Home() {
                   </FormItem>
                 )}
               />
+              {entryType === "cash_in" && (
+                <FormField
+                  control={form.control}
+                  name="profit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-1.5">
+                        <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                        Profit (Optional)
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="Is sale mein kitna profit hua? (Optional)"
+                          {...field}
+                          value={field.value ?? ""}
+                          data-testid="input-profit"
+                        />
+                      </FormControl>
+                      <p className="text-[11px] text-muted-foreground">Profit Tracker mein automatically show hoga</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={form.control}
                 name="paymentMethod"
