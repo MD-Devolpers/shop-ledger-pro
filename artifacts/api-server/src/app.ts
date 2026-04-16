@@ -99,6 +99,20 @@ app.use("/api/auth/forgot-password", authLimiter);
 // Apply general rate limit to all API routes
 app.use("/api", apiLimiter);
 
+// ── Digital Asset Links (required for Play Store TWA) ─────────────────────
+app.get("/.well-known/assetlinks.json", (_req: Request, res: Response) => {
+  const raw = process.env.ASSET_LINKS_JSON;
+  if (raw) {
+    try {
+      res.json(JSON.parse(raw));
+    } catch {
+      res.status(500).json({ error: "Invalid ASSET_LINKS_JSON env var" });
+    }
+  } else {
+    res.json([]);
+  }
+});
+
 // ── Routes ─────────────────────────────────────────────────────────────────
 app.use("/api", router);
 
