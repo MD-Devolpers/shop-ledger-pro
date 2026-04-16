@@ -1,0 +1,13 @@
+{
+  "build": {
+    "cmds": [
+      "PORT=3000 BASE_PATH=/ NODE_ENV=production pnpm --filter @workspace/shop-ledger run build",
+      "pnpm --filter @workspace/api-server run build",
+      "mkdir -p artifacts/api-server/dist/public",
+      "cp -r artifacts/shop-ledger/dist/public/. artifacts/api-server/dist/public/"
+    ]
+  },
+  "start": {
+    "cmd": "sh start-railway.sh"
+  }
+}

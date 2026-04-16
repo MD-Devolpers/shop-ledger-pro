@@ -4,6 +4,9 @@ import cookieSession from "cookie-session";
 import pinoHttp from "pino-http";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import path from "path";
+import { fileURLToPath } from "url";
+import { existsSync } from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -95,10 +98,21 @@ app.use("/api", apiLimiter);
 // ── Routes ─────────────────────────────────────────────────────────────────
 app.use("/api", router);
 
-// ── 404 handler ────────────────────────────────────────────────────────────
-app.use((_req: Request, res: Response) => {
-  res.status(404).json({ error: "Not found" });
-});
+// ── Serve frontend static files in production ──────────────────────────────
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const publicDir = path.resolve(__dirname, "public");
+
+if (process.env.NODE_ENV === "production" && existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+  app.use("*", (_req: Request, res: Response) => {
+    res.sendFile(path.resolve(publicDir, "index.html"));
+  });
+} else {
+  // ── 404 handler (dev only) ──────────────────────────────────────────────
+  app.use((_req: Request, res: Response) => {
+    res.status(404).json({ error: "Not found" });
+  });
+}
 
 // ── Global error handler (hides internal details) ──────────────────────────
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
