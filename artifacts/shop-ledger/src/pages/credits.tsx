@@ -477,7 +477,7 @@ function CustomerReportCard({
                   className="h-7 text-[11px] px-2"
                   onClick={() => { onDeleteCustomer(credits); setConfirmDelete(false); }}
                 >
-                  Haan
+                  Yes, Delete
                 </Button>
                 <Button
                   variant="outline"
@@ -485,7 +485,7 @@ function CustomerReportCard({
                   className="h-7 text-[11px] px-2"
                   onClick={() => setConfirmDelete(false)}
                 >
-                  Nahi
+                  Cancel
                 </Button>
               </div>
             )}
