@@ -81,6 +81,18 @@ export default function Home() {
 
   const isCredit = form.watch("isCredit");
 
+  // Auto-focus customer name input and show saved customers when credit is toggled on
+  useEffect(() => {
+    if (isCredit && dialogOpen) {
+      setTimeout(() => {
+        customerInputRef.current?.focus();
+        setShowCustomerDropdown(true);
+      }, 50);
+    } else {
+      setShowCustomerDropdown(false);
+    }
+  }, [isCredit, dialogOpen]);
+
   const openDialog = (type: "cash_in" | "cash_out") => {
     setEntryType(type);
     form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: "cash", isCredit: false, customerName: "" });
