@@ -5,8 +5,8 @@ import { eq, desc, sum, and } from "drizzle-orm";
 
 const router = Router();
 
-// GET /api/closing - list all closings and personal wallet total
-router.get("/api/closing", requireAuth, async (req, res) => {
+// GET /closing - list all closings and personal wallet total
+router.get("/closing", requireAuth, async (req, res) => {
   const userId = (req.session as any).userId as number;
 
   const history = await db
@@ -45,8 +45,8 @@ router.get("/api/closing", requireAuth, async (req, res) => {
   });
 });
 
-// POST /api/closing - create a closing (move to personal wallet)
-router.post("/api/closing", requireAuth, async (req, res) => {
+// POST /closing - create a closing (move to personal wallet)
+router.post("/closing", requireAuth, async (req, res) => {
   const userId = (req.session as any).userId as number;
 
   const { amount, source, note } = req.body;
@@ -71,8 +71,8 @@ router.post("/api/closing", requireAuth, async (req, res) => {
   });
 });
 
-// DELETE /api/closing/:id - delete a closing entry
-router.delete("/api/closing/:id", requireAuth, async (req, res) => {
+// DELETE /closing/:id - delete a closing entry
+router.delete("/closing/:id", requireAuth, async (req, res) => {
   const userId = (req.session as any).userId as number;
   const id = parseInt(req.params.id);
 
