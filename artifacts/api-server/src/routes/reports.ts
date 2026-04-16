@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, isNull, sum, count, sql } from "drizzle-orm";
-import { db, entriesTable, creditsTable } from "@workspace/db";
+import { db, entriesTable, creditsTable, closingsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -106,6 +106,23 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
     }
   }
 
+  // Subtract closing/personal wallet withdrawals from the respective balances
+  const closingTotals = await db
+    .select({ source: closingsTable.source, total: sum(closingsTable.amount) })
+    .from(closingsTable)
+    .where(eq(closingsTable.userId, userId))
+    .groupBy(closingsTable.source);
+
+  let cashClosing = 0;
+  let digitalClosing = 0;
+  for (const c of closingTotals) {
+    if (c.source === "cash") cashClosing = parseFloat(c.total ?? "0");
+    if (c.source === "digital") digitalClosing = parseFloat(c.total ?? "0");
+  }
+  cashBalance -= cashClosing;
+  digitalBalance -= digitalClosing;
+  const personalWallet = cashClosing + digitalClosing;
+
   // Calculate credit balances from the credits table (live, reflects all payments)
   const pendingCredits = await db
     .select({ type: creditsTable.type, totalAmount: sum(creditsTable.amount) })
@@ -139,6 +156,7 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
     cashBalance: Math.round(cashBalance * 100) / 100,
     digitalBalance: Math.round(digitalBalance * 100) / 100,
     totalBalance: Math.round((cashBalance + digitalBalance) * 100) / 100,
+    personalWallet: Math.round(personalWallet * 100) / 100,
     totalCashIn: Math.round(totalCashIn * 100) / 100,
     totalCashOut: Math.round(totalCashOut * 100) / 100,
     totalProfit: Math.round(totalProfit * 100) / 100,

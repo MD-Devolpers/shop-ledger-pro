@@ -8,6 +8,7 @@ import customersRouter from "./customers";
 import reportsRouter from "./reports";
 import backupRouter from "./backup";
 import adminRouter from "./admin";
+import closingRouter from "./closing";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(customersRouter);
 router.use(reportsRouter);
 router.use(backupRouter);
 router.use(adminRouter);
+router.use(closingRouter);
 
 export default router;
