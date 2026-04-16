@@ -918,10 +918,43 @@ export default function Credits() {
                 ))}
               </div>
             ) : receivedCredits.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">Koi received credit nahi</p>
-                <p className="text-xs mt-1">Yahan woh credits show hote hain jo aap ne kisi se liye hain</p>
+              <div className="flex flex-col gap-3">
+                {/* Explanation card */}
+                <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
+                  <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-3">
+                    <ArrowDownCircle className="h-6 w-6 text-orange-500" />
+                  </div>
+                  <p className="font-semibold text-sm text-orange-800 mb-1">Aap ka Udhar (Credit Liya)</p>
+                  <p className="text-xs text-orange-600 leading-relaxed">
+                    Jab aap ne kisi supplier ya dukan se cheez credit par li ho — yahan record rakho. Yeh woh paisa hai <strong>jo aap ne dena hota hai</strong>.
+                  </p>
+                </div>
+
+                {/* How to add */}
+                <div className="bg-card border rounded-xl p-3 space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Kaise add karein?</p>
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+                    <p><strong>Manual:</strong> Upar "＋ Add Credit" button dabao aur type "Received (Aap ne liya)" select karo</p>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+                    <p><strong>Auto:</strong> Home screen par Cash Out karte waqt "Mark as Credit" toggle on karo — yahan automatically add ho jayega</p>
+                  </div>
+                </div>
+
+                {/* Quick add button */}
+                <Button
+                  variant="outline"
+                  className="w-full border-orange-200 text-orange-700 hover:bg-orange-50 gap-2"
+                  onClick={() => {
+                    form.reset({ customerName: "", phone: "", amount: 0, description: "", type: "received", dueDate: "" });
+                    setDialogOpen(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  Abhi Credit Liya Add Karein
+                </Button>
               </div>
             ) : filteredReceived.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
