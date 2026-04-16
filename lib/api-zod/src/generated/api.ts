@@ -267,6 +267,7 @@ export const ListCreditsResponseItem = zod.object({
   id: zod.number(),
   userId: zod.number(),
   customerName: zod.string(),
+  phone: zod.string().nullish(),
   amount: zod.number(),
   description: zod.string().nullish(),
   type: zod.enum(["given", "received"]),
@@ -282,6 +283,7 @@ export const ListCreditsResponse = zod.array(ListCreditsResponseItem);
  */
 export const CreateCreditBody = zod.object({
   customerName: zod.string(),
+  phone: zod.string().nullish(),
   amount: zod.number(),
   description: zod.string().nullish(),
   type: zod.enum(["given", "received"]),
@@ -298,6 +300,7 @@ export const UpdateCreditParams = zod.object({
 export const UpdateCreditBody = zod.object({
   status: zod.enum(["pending", "paid"]).optional(),
   amount: zod.number().optional(),
+  phone: zod.string().nullish(),
   description: zod.string().nullish(),
   dueDate: zod.string().nullish(),
 });
@@ -306,6 +309,7 @@ export const UpdateCreditResponse = zod.object({
   id: zod.number(),
   userId: zod.number(),
   customerName: zod.string(),
+  phone: zod.string().nullish(),
   amount: zod.number(),
   description: zod.string().nullish(),
   type: zod.enum(["given", "received"]),

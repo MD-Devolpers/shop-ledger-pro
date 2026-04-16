@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, sql } from "drizzle-orm";
+import { eq, and, ilike } from "drizzle-orm";
 import { db, creditsTable } from "@workspace/db";
 import {
   CreateCreditBody,
@@ -17,6 +17,7 @@ function formatCredit(c: typeof creditsTable.$inferSelect) {
     id: c.id,
     userId: c.userId,
     customerName: c.customerName,
+    phone: c.phone ?? null,
     amount: parseFloat(c.amount),
     description: c.description,
     type: c.type,
@@ -59,13 +60,14 @@ router.post("/credits", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const { customerName, amount, description, type, dueDate } = parsed.data;
+  const { customerName, phone, amount, description, type, dueDate } = parsed.data;
 
   const [credit] = await db
     .insert(creditsTable)
     .values({
       userId,
       customerName,
+      phone: phone ?? null,
       amount: amount.toString(),
       description: description ?? null,
       type,
@@ -94,8 +96,9 @@ router.patch("/credits/:id", requireAuth, async (req, res): Promise<void> => {
   const updateData: Record<string, unknown> = {};
   if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
   if (parsed.data.amount !== undefined) updateData.amount = parsed.data.amount.toString();
+  if (parsed.data.phone !== undefined) updateData.phone = parsed.data.phone;
   if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
-  if (parsed.data.dueDate !== undefined) updateData.dueDate = new Date(parsed.data.dueDate as string);
+  if (parsed.data.dueDate !== undefined) updateData.dueDate = parsed.data.dueDate ? new Date(parsed.data.dueDate) : null;
 
   const [credit] = await db
     .update(creditsTable)

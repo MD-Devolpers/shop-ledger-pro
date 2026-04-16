@@ -20,6 +20,7 @@ export default function RecycleBin() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [permanentDeleting, setPermanentDeleting] = useState<number | null>(null);
+  const [clearingAll, setClearingAll] = useState(false);
 
   const { data: deletedEntries = [], isLoading, refetch } = useListEntries(
     { deleted: true },
@@ -66,6 +67,25 @@ export default function RecycleBin() {
     }
   };
 
+  const handleClearAll = async () => {
+    if (!confirm(`Permanently delete ALL ${deletedEntries.length} entries? This CANNOT be undone.`)) return;
+    setClearingAll(true);
+    try {
+      const res = await fetch("/api/entries/permanent-all", { method: "DELETE" });
+      if (res.ok) {
+        const d = await res.json();
+        toast({ title: "Recycle bin cleared", description: `${d.count} entries permanently deleted.` });
+        refetch();
+        queryClient.invalidateQueries();
+      } else {
+        const d = await res.json();
+        toast({ title: "Failed", description: d.error, variant: "destructive" });
+      }
+    } finally {
+      setClearingAll(false);
+    }
+  };
+
   const getTypeStyle = (type: string) => {
     return type === "cash_in"
       ? { bg: "bg-green-50", text: "text-green-700", label: "Cash In" }
@@ -82,9 +102,23 @@ export default function RecycleBin() {
           </h1>
           <p className="text-xs text-muted-foreground">Deleted entries — restore or remove permanently</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {deletedEntries.length > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              className="text-xs h-8 px-3"
+              onClick={handleClearAll}
+              disabled={clearingAll}
+            >
+              {clearingAll ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+              Clear All
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-auto p-4">

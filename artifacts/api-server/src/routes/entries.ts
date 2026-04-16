@@ -232,6 +232,15 @@ router.delete("/entries/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(formatEntry(entry));
 });
 
+router.delete("/entries/permanent-all", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.session!.userId!;
+  const result = await db
+    .delete(entriesTable)
+    .where(and(eq(entriesTable.userId, userId), isNotNull(entriesTable.deletedAt)))
+    .returning({ id: entriesTable.id });
+  res.json({ message: "All deleted permanently", count: result.length });
+});
+
 router.delete("/entries/:id/permanent", requireAuth, async (req, res): Promise<void> => {
   const userId = req.session!.userId!;
   const id = parseInt(req.params.id);

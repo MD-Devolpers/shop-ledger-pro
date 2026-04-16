@@ -6,6 +6,7 @@ export const creditsTable = pgTable("credits", {
   id: serial("id").primaryKey(),
   userId: serial("user_id").notNull(),
   customerName: text("customer_name").notNull(),
+  phone: text("phone"),
   amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
   description: text("description"),
   type: text("type", { enum: ["given", "received"] }).notNull(),
