@@ -27,12 +27,12 @@ export default function Reports() {
 
   const { data: report, isLoading } = useGetEntriesReport(
     { period },
-    { query: { queryKey: getGetEntriesReportQueryKey({ period }) } }
+    { query: { queryKey: getGetEntriesReportQueryKey({ period }), refetchInterval: 30000 } }
   );
 
   const { data: profitReport, isLoading: profitLoading } = useGetProfitReport(
     { period },
-    { query: { queryKey: getGetProfitReportQueryKey({ period }) } }
+    { query: { queryKey: getGetProfitReportQueryKey({ period }), refetchInterval: 30000 } }
   );
 
   return (
@@ -61,14 +61,18 @@ export default function Reports() {
               <>
                 {/* Period Info */}
                 <p className="text-xs text-muted-foreground mb-3">
-                  {format(new Date(report.startDate), "MMM d, yyyy")} —{" "}
-                  {format(new Date(report.endDate), "MMM d, yyyy")}
+                  {period === "daily"
+                    ? format(new Date(report.startDate), "MMM d, yyyy")
+                    : `${format(new Date(report.startDate), "MMM d, yyyy")} — ${format(new Date(report.endDate), "MMM d, yyyy")}`}
                 </p>
 
                 {/* Cash Summary Cards */}
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                  Cash Summary
-                </p>
+                <div className="flex items-baseline gap-2 mb-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Cash Summary
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">(net movement for this period)</p>
+                </div>
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="bg-green-50 border border-green-100 rounded-xl p-3">
                     <p className="text-xs text-green-600 font-medium">Total In</p>
