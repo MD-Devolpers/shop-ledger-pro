@@ -500,7 +500,11 @@ export default function Home() {
                         onChange={field.onChange}
                         data-testid="checkbox-is-credit"
                       />
-                      <span className="text-sm">Mark as Credit</span>
+                      <span className="text-sm">
+                        {entryType === "cash_in" && isFundTransfer
+                          ? "Mark as Received Credit (payment pending)"
+                          : "Mark as Credit"}
+                      </span>
                     </label>
                   )}
                 />
@@ -509,9 +513,14 @@ export default function Home() {
                 <>
                   <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                     <Handshake className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                    <span>This entry will also be saved on the Credits page. Selecting an existing customer will add to their existing balance.</span>
+                    <span>
+                      {entryType === "cash_in" && isFundTransfer
+                        ? "This payment will be saved under Received Credits — the customer's pending digital payment will appear in your Credits page."
+                        : "This entry will also be saved on the Credits page. Selecting an existing customer will add to their existing balance."}
+                    </span>
                   </div>
-                  <FormField
+                  {/* Customer name for credit — hidden in digital mode since it's already in the blue box */}
+                  {!isFundTransfer && <FormField
                     control={form.control}
                     name="customerName"
                     render={({ field }) => (
@@ -569,7 +578,7 @@ export default function Home() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                  />}
                 </>
               )}
               <Button

@@ -110,9 +110,10 @@ router.post("/entries", requireAuth, async (req, res): Promise<void> => {
 
   // Auto-save to credits table when entry is marked as credit with a customer name
   if (isCredit && customerName) {
-    // cash_in with credit = you gave goods on credit (customer owes you) → "given"
-    // cash_out with credit = you got something on credit (you owe supplier) → "received"
-    const creditType = type === "cash_in" ? "given" : "received";
+    // cash_in + cash + credit = gave goods on credit (customer owes you) → "given"
+    // cash_in + digital + credit = Fund Receive on credit (customer sent you digitally, pending) → "received"
+    // cash_out + credit = received goods/service on credit (you owe someone) → "received"
+    const creditType = (type === "cash_in" && paymentMethod !== "digital") ? "given" : "received";
 
     // Check if this customer already has a pending credit of the same type
     const [existingCredit] = await db
