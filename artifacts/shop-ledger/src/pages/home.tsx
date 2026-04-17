@@ -81,7 +81,7 @@ export default function Home() {
 
   const isCredit = form.watch("isCredit");
   const watchedPaymentMethod = form.watch("paymentMethod");
-  const isFundTransfer = entryType === "cash_out" && watchedPaymentMethod === "digital";
+  const isFundTransfer = watchedPaymentMethod === "digital";
 
   // Auto-focus customer name input and show saved customers when credit is toggled on
   useEffect(() => {
@@ -429,16 +429,16 @@ export default function Home() {
                 <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-3">
                   <div className="flex items-center gap-1.5 text-xs text-blue-700 font-semibold">
                     <ArrowRightLeft className="h-3.5 w-3.5" />
-                    Fund Transfer Info (Optional)
+                    {entryType === "cash_out" ? "Fund Transfer Info (Optional)" : "Digital Payment Info (Optional)"}
                   </div>
                   <FormField
                     control={form.control}
                     name="customerName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">Recipient Name</FormLabel>
+                        <FormLabel className="text-xs">{entryType === "cash_out" ? "Recipient Name" : "Customer Name"}</FormLabel>
                         <FormControl>
-                          <Input placeholder="Customer / recipient name" {...field} data-testid="input-transfer-name" />
+                          <Input placeholder={entryType === "cash_out" ? "Recipient / customer name" : "Customer / sender name"} {...field} data-testid="input-transfer-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
