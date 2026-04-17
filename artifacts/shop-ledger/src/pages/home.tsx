@@ -97,7 +97,7 @@ export default function Home() {
 
   const openDialog = (type: "cash_in" | "cash_out") => {
     setEntryType(type);
-    form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: "cash", isCredit: false, customerName: "" });
+    form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: type === "cash_out" ? "digital" : "cash", isCredit: false, customerName: "" });
     setCustomerSearch("");
     setShowCustomerDropdown(false);
     setDialogOpen(true);
