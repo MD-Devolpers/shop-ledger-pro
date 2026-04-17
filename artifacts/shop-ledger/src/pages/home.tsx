@@ -438,7 +438,7 @@ export default function Home() {
                       <FormItem>
                         <FormLabel className="text-xs">{entryType === "cash_out" ? "Recipient Name" : "Customer Name"}</FormLabel>
                         <FormControl>
-                          <Input placeholder={entryType === "cash_out" ? "Recipient / customer name" : "Customer / sender name"} {...field} data-testid="input-transfer-name" />
+                          <Input placeholder="Customer Name / Account Number" {...field} data-testid="input-transfer-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
