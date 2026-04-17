@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
-  useGetReportSummary, 
+  useGetReportSummary,
+  useGetMe,
   useCreateEntry, 
   useListEntries,
   useDeleteEntry,
@@ -9,6 +10,7 @@ import {
   getGetReportSummaryQueryKey,
   getListEntriesQueryKey,
 } from "@workspace/api-client-react";
+import ReceiptModal, { type ReceiptData } from "@/components/receipt-modal";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -45,12 +47,15 @@ function formatCurrency(amount: number) {
 export default function Home() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: me } = useGetMe();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [entryType, setEntryType] = useState<"cash_in" | "cash_out">("cash_in");
   const [editEntry, setEditEntry] = useState<number | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const customerInputRef = useRef<HTMLInputElement>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   const { data: summary, isLoading: summaryLoading } = useGetReportSummary();
   const { data: todayEntries, isLoading: entriesLoading } = useListEntries({
@@ -127,10 +132,24 @@ export default function Home() {
           const label = isFundTransfer
             ? (entryType === "cash_in" ? "Fund Receive" : "Fund Transfer")
             : (entryType === "cash_in" ? "Cash In" : "Cash Out");
-          toast({
-            title: `${label} recorded`,
-            description: `${formatCurrency(data.amount)} has been saved.`,
-          });
+
+          if (isFundTransfer) {
+            setReceiptData({
+              storeName: (me as any)?.username || "My Store",
+              transactionType: entryType === "cash_out" ? "Fund Transfer" : "Fund Receive",
+              amount: data.amount,
+              customerName: data.customerName || null,
+              contactNumber: data.contactNumber || null,
+              description: data.description || null,
+              date: new Date(),
+            });
+            setReceiptOpen(true);
+          } else {
+            toast({
+              title: `${label} recorded`,
+              description: `${formatCurrency(data.amount)} has been saved.`,
+            });
+          }
         },
         onError: (error) => {
           toast({ title: "Error", description: error.error || "Failed to create entry.", variant: "destructive" });
@@ -640,6 +659,13 @@ export default function Home() {
           }}
         />
       )}
+
+      {/* Receipt Modal */}
+      <ReceiptModal
+        open={receiptOpen}
+        onClose={() => setReceiptOpen(false)}
+        data={receiptData}
+      />
     </div>
   );
 }
