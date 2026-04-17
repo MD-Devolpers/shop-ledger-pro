@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import {
   useGetEntriesReport,
   useGetProfitReport,
+  useGetReportSummary,
   getGetEntriesReportQueryKey,
   getGetProfitReportQueryKey,
+  getGetReportSummaryQueryKey,
 } from "@workspace/api-client-react";
-import { TrendingUp, TrendingDown, Sparkles } from "lucide-react";
+import { TrendingUp, TrendingDown, Sparkles, Wallet, CreditCard } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
@@ -34,6 +36,10 @@ export default function Reports() {
     { period },
     { query: { queryKey: getGetProfitReportQueryKey({ period }), refetchInterval: 30000 } }
   );
+
+  const { data: summary } = useGetReportSummary({
+    query: { queryKey: getGetReportSummaryQueryKey(), refetchInterval: 30000 },
+  } as any);
 
   return (
     <div className="flex flex-col h-full">
@@ -66,12 +72,12 @@ export default function Reports() {
                     : `${format(new Date(report.startDate), "MMM d, yyyy")} — ${format(new Date(report.endDate), "MMM d, yyyy")}`}
                 </p>
 
-                {/* Cash Summary Cards */}
+                {/* Period In/Out */}
                 <div className="flex items-baseline gap-2 mb-2">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Cash Summary
                   </p>
-                  <p className="text-[10px] text-muted-foreground">(net movement for this period)</p>
+                  <p className="text-[10px] text-muted-foreground">(this period only)</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="bg-green-50 border border-green-100 rounded-xl p-3">
@@ -86,23 +92,39 @@ export default function Reports() {
                       {formatCurrency(report.totalCashOut)}
                     </p>
                   </div>
-                  <div className="bg-card border rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground font-medium">Cash Balance</p>
-                    <p
-                      className={`text-lg font-bold ${report.cashBalance >= 0 ? "text-foreground" : "text-red-600"}`}
-                      data-testid="report-cash-balance"
-                    >
-                      {formatCurrency(report.cashBalance)}
-                    </p>
+                </div>
+
+                {/* All-time Balances from summary */}
+                <div className="flex items-baseline gap-2 mb-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Current Balances
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">(all-time running total)</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="bg-card border rounded-xl p-3 flex items-center gap-2">
+                    <Wallet className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium">Cash Balance</p>
+                      <p
+                        className={`text-lg font-bold ${(summary as any)?.cashBalance >= 0 ? "text-foreground" : "text-red-600"}`}
+                        data-testid="report-cash-balance"
+                      >
+                        {formatCurrency((summary as any)?.cashBalance ?? 0)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="bg-card border rounded-xl p-3">
-                    <p className="text-xs text-muted-foreground font-medium">Digital Balance</p>
-                    <p
-                      className={`text-lg font-bold ${report.digitalBalance >= 0 ? "text-foreground" : "text-red-600"}`}
-                      data-testid="report-digital-balance"
-                    >
-                      {formatCurrency(report.digitalBalance)}
-                    </p>
+                  <div className="bg-card border rounded-xl p-3 flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs text-muted-foreground font-medium">Digital Balance</p>
+                      <p
+                        className={`text-lg font-bold ${(summary as any)?.digitalBalance >= 0 ? "text-foreground" : "text-red-600"}`}
+                        data-testid="report-digital-balance"
+                      >
+                        {formatCurrency((summary as any)?.digitalBalance ?? 0)}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
