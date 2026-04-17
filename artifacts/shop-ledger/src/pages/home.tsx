@@ -435,37 +435,27 @@ export default function Home() {
                   )}
                 />
               )}
-              {isFundTransfer ? (
-                <div className="space-y-1.5">
-                  <p className="text-sm font-medium">Payment Method</p>
-                  <div className="flex items-center gap-2 h-10 px-3 rounded-md border bg-blue-50 border-blue-200">
-                    <CreditCard className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-700">Digital Payment</span>
-                  </div>
-                </div>
-              ) : (
-                <FormField
-                  control={form.control}
-                  name="paymentMethod"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Payment Method</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger data-testid="select-payment-method">
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="cash">Cash</SelectItem>
-                          <SelectItem value="digital">Digital Payment</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
+              <FormField
+                control={form.control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Method</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-payment-method">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="digital">Digital Payment</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               {isFundTransfer && (
                 <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-3">
                   <div className="flex items-center gap-1.5 text-xs text-blue-700 font-semibold">
