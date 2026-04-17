@@ -3,14 +3,17 @@ import {
   useGetEntriesReport,
   useGetProfitReport,
   useGetReportSummary,
+  useGetMe,
   getGetEntriesReportQueryKey,
   getGetProfitReportQueryKey,
   getGetReportSummaryQueryKey,
 } from "@workspace/api-client-react";
-import { TrendingUp, TrendingDown, Sparkles, Wallet, CreditCard } from "lucide-react";
+import { TrendingUp, TrendingDown, Sparkles, Wallet, CreditCard, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
+import ReceiptModal, { type ReceiptData } from "@/components/receipt-modal";
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-PK", {
@@ -22,6 +25,9 @@ function formatCurrency(amount: number) {
 
 export default function Reports() {
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const { data: me } = useGetMe();
 
   useEffect(() => {
     document.title = "Reports - LedgerEntries";
@@ -212,7 +218,7 @@ export default function Reports() {
                             )}
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="flex items-center gap-1">
                           <p
                             className={`text-sm font-bold ${
                               entry.type === "cash_in" ? "text-green-600" : "text-red-600"
@@ -221,6 +227,28 @@ export default function Reports() {
                             {entry.type === "cash_in" ? "+" : "-"}
                             {formatCurrency(entry.amount)}
                           </p>
+                          {entry.paymentMethod === "digital" && !(entry as any).isCredit && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex-shrink-0"
+                              title="View Receipt"
+                              onClick={() => {
+                                setReceiptData({
+                                  storeName: (me as any)?.username || "My Store",
+                                  transactionType: entry.type === "cash_out" ? "Fund Transfer" : "Fund Receive",
+                                  amount: entry.amount,
+                                  customerName: (entry as any).customerName || null,
+                                  contactNumber: (entry as any).contactNumber || null,
+                                  description: entry.description || null,
+                                  date: new Date(entry.entryDate),
+                                });
+                                setReceiptOpen(true);
+                              }}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))
@@ -235,6 +263,12 @@ export default function Reports() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <ReceiptModal
+        open={receiptOpen}
+        onClose={() => setReceiptOpen(false)}
+        data={receiptData}
+      />
     </div>
   );
 }

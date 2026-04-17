@@ -351,6 +351,28 @@ export default function Home() {
                     {formatCurrency(entry.amount)}
                   </p>
                   <div className="flex gap-1">
+                    {entry.paymentMethod === "digital" && !entry.isCredit && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        title="View Receipt"
+                        onClick={() => {
+                          setReceiptData({
+                            storeName: (me as any)?.username || "My Store",
+                            transactionType: entry.type === "cash_out" ? "Fund Transfer" : "Fund Receive",
+                            amount: entry.amount,
+                            customerName: (entry as any).customerName || null,
+                            contactNumber: (entry as any).contactNumber || null,
+                            description: entry.description || null,
+                            date: new Date(entry.entryDate),
+                          });
+                          setReceiptOpen(true);
+                        }}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
