@@ -19,6 +19,8 @@ import {
   Pencil,
   ChevronDown,
   ChevronUp,
+  Search,
+  X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -85,6 +87,8 @@ export default function Admin() {
   const [editEmailId, setEditEmailId] = useState<number | null>(null);
   const [editEmailValue, setEditEmailValue] = useState("");
   const [editEmailLoading, setEditEmailLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
+  const [deletedSearch, setDeletedSearch] = useState("");
 
   useEffect(() => {
     document.title = "Admin Panel - LedgerEntries";
@@ -240,6 +244,22 @@ export default function Admin() {
     }
   };
 
+  const filteredUsers = users.filter((u) => {
+    const q = userSearch.toLowerCase().trim();
+    if (!q) return true;
+    return u.username.toLowerCase().includes(q) || (u.email ?? "").toLowerCase().includes(q);
+  });
+
+  const filteredDeleted = deletedEntries.filter((e) => {
+    const q = deletedSearch.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (e.username ?? "").toLowerCase().includes(q) ||
+      (e.description ?? "").toLowerCase().includes(q) ||
+      (e.customerName ?? "").toLowerCase().includes(q)
+    );
+  });
+
   if (meLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30">
@@ -306,7 +326,28 @@ export default function Admin() {
 
           {/* ── Users Tab ── */}
           <TabsContent value="users" className="space-y-2 mt-3">
-            {users.map((user) => {
+            {/* Search bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search by name or email..."
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                className="pl-9 pr-9 h-9 text-sm"
+              />
+              {userSearch && (
+                <button
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setUserSearch("")}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            {filteredUsers.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground py-8">No users match your search.</p>
+            )}
+            {filteredUsers.map((user) => {
               const isExpanded = expandedUser === user.id;
               const isMe = user.id === (me as any)?.id;
               return (
@@ -484,6 +525,27 @@ export default function Admin() {
 
           {/* ── Deleted Records Tab ── */}
           <TabsContent value="deleted" className="mt-3 space-y-3">
+            {/* Search bar */}
+            {deletedEntries.length > 0 && (
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Search by user, description or customer..."
+                  value={deletedSearch}
+                  onChange={(e) => setDeletedSearch(e.target.value)}
+                  className="pl-9 pr-9 h-9 text-sm"
+                />
+                {deletedSearch && (
+                  <button
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => setDeletedSearch("")}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
             {deletedEntries.length > 0 && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
@@ -509,9 +571,11 @@ export default function Admin() {
                 <p className="font-medium">No deleted records</p>
                 <p className="text-xs mt-1">Recycle bin is empty across all users</p>
               </div>
+            ) : filteredDeleted.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-8">No deleted records match your search.</p>
             ) : (
               <div className="space-y-2">
-                {deletedEntries.map((entry) => (
+                {filteredDeleted.map((entry) => (
                   <Card key={entry.id} className="p-3 border-red-100 bg-red-50/30">
                     <div className="flex items-start gap-3">
                       <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
