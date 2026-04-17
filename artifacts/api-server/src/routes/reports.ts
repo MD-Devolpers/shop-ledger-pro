@@ -85,22 +85,20 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
 
     if (entry.paymentMethod === "cash") {
       if (entry.type === "cash_in") {
-        cashBalance += amount;
+        cashBalance += amount;   // Cash received → cash balance up
         totalCashIn += amount;
       } else {
-        cashBalance -= amount;
+        cashBalance -= amount;   // Cash paid → cash balance down
         totalCashOut += amount;
       }
     } else {
-      // Digital: cash_out+digital means you gave cash & received digital (e.g. Jazz Cash agent)
-      // So digital always increases on cash_out+digital, decreases only on cash_in+digital
+      // Digital: Fund Receive (cash_in+digital) → digital up
+      //          Fund Transfer (cash_out+digital) → digital down
       if (entry.type === "cash_in") {
-        cashBalance += amount;      // received cash from customer
-        digitalBalance -= amount;  // sent digital to customer
+        digitalBalance += amount;  // Customer sent me money digitally
         totalCashIn += amount;
       } else {
-        cashBalance -= amount;     // gave cash to customer
-        digitalBalance += amount;  // received digital from customer
+        digitalBalance -= amount;  // I sent money from my digital account
         totalCashOut += amount;
       }
     }
@@ -203,18 +201,16 @@ router.get("/reports/entries", requireAuth, async (req, res): Promise<void> => {
     if (entry.type === "cash_in") {
       cashIn += amount;
       if (entry.paymentMethod === "cash") {
-        cashBalance += amount;
+        cashBalance += amount;     // Cash received → cash up
       } else {
-        cashBalance += amount;      // received cash from customer
-        digitalBalance -= amount;  // sent digital to customer
+        digitalBalance += amount;  // Fund Receive → digital up
       }
     } else {
       cashOut += amount;
       if (entry.paymentMethod === "cash") {
-        cashBalance -= amount;
+        cashBalance -= amount;     // Cash paid → cash down
       } else {
-        cashBalance -= amount;     // gave cash to customer
-        digitalBalance += amount;  // received digital from customer
+        digitalBalance -= amount;  // Fund Transfer → digital down
       }
     }
   }
