@@ -93,14 +93,15 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
       }
     } else {
       // Digital:
-      // Fund Receive (cash_in+digital): I give cash to customer → cashBalance↓, receive digital → digitalBalance↑
-      // Fund Transfer (cash_out+digital): I send from my digital account → digitalBalance↓
+      // Fund Receive (cash_in+digital): I give cash → cashBalance↓, receive digital → digitalBalance↑
+      // Fund Transfer (cash_out+digital): digital account deducted → digitalBalance↓, cash received → cashBalance↑
       if (entry.type === "cash_in") {
-        digitalBalance += amount;  // Received digital from customer
-        cashBalance -= amount;     // Gave cash to customer
+        digitalBalance += amount;  // Fund Receive: received digital
+        cashBalance -= amount;     // Fund Receive: gave cash
         totalCashIn += amount;
       } else {
-        digitalBalance -= amount;  // Sent from my digital account
+        digitalBalance -= amount;  // Fund Transfer: digital deducted
+        cashBalance += amount;     // Fund Transfer: cash added
         totalCashOut += amount;
       }
     }
@@ -203,17 +204,18 @@ router.get("/reports/entries", requireAuth, async (req, res): Promise<void> => {
     if (entry.type === "cash_in") {
       cashIn += amount;
       if (entry.paymentMethod === "cash") {
-        cashBalance += amount;     // Cash received → cash up
+        cashBalance += amount;     // Cash In → cash up
       } else {
-        digitalBalance += amount;  // Fund Receive → digital up + cash down
+        digitalBalance += amount;  // Fund Receive → digital up, cash down
         cashBalance -= amount;
       }
     } else {
       cashOut += amount;
       if (entry.paymentMethod === "cash") {
-        cashBalance -= amount;     // Cash paid → cash down
+        cashBalance -= amount;     // Cash Out → cash down
       } else {
-        digitalBalance -= amount;  // Fund Transfer → digital down
+        digitalBalance -= amount;  // Fund Transfer → digital down, cash up
+        cashBalance += amount;
       }
     }
   }
