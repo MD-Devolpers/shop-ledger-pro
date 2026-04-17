@@ -125,6 +125,7 @@ export const CreateEntryBody = zod.object({
   profit: zod.number().nullish(),
   isCredit: zod.boolean().optional(),
   customerName: zod.string().nullish(),
+  contactNumber: zod.string().nullish(),
   entryDate: zod.string().nullish(),
 });
 

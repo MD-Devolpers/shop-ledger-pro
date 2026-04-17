@@ -30,6 +30,7 @@ const entrySchema = z.object({
   paymentMethod: z.enum(["cash", "digital"]),
   isCredit: z.boolean().default(false),
   customerName: z.string().optional(),
+  contactNumber: z.string().optional(),
 });
 
 function formatCurrency(amount: number) {
@@ -76,6 +77,7 @@ export default function Home() {
       paymentMethod: "cash",
       isCredit: false,
       customerName: "",
+      contactNumber: "",
     },
   });
 
@@ -97,7 +99,7 @@ export default function Home() {
 
   const openDialog = (type: "cash_in" | "cash_out", method: "cash" | "digital" = "cash") => {
     setEntryType(type);
-    form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: method, isCredit: false, customerName: "" });
+    form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: method, isCredit: false, customerName: "", contactNumber: "" });
     setCustomerSearch("");
     setShowCustomerDropdown(false);
     setDialogOpen(true);
@@ -114,6 +116,7 @@ export default function Home() {
           paymentMethod: data.paymentMethod,
           isCredit: data.isCredit,
           customerName: (data.isCredit || isFundTransfer) ? (data.customerName || null) : null,
+          contactNumber: isFundTransfer ? (data.contactNumber || null) : null,
         },
       },
       {
@@ -467,6 +470,28 @@ export default function Home() {
                         <FormLabel className="text-xs">{entryType === "cash_out" ? "Recipient Name" : "Customer Name"}</FormLabel>
                         <FormControl>
                           <Input placeholder="Customer Name / Account Number" {...field} data-testid="input-transfer-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="contactNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Contact Number (Optional)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-500 pointer-events-none" />
+                            <Input
+                              placeholder="03XX-XXXXXXX"
+                              {...field}
+                              className="pl-9"
+                              inputMode="tel"
+                              data-testid="input-contact-number"
+                            />
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>

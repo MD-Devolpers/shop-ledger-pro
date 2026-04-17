@@ -18,5 +18,7 @@ export interface CreateEntryBody {
   /** @nullable */
   customerName?: string | null;
   /** @nullable */
+  contactNumber?: string | null;
+  /** @nullable */
   entryDate?: string | null;
 }

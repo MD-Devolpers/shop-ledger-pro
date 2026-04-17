@@ -12,6 +12,7 @@ export const entriesTable = pgTable("entries", {
   profit: numeric("profit", { precision: 12, scale: 2 }),
   isCredit: boolean("is_credit").notNull().default(false),
   customerName: text("customer_name"),
+  contactNumber: text("contact_number"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   entryDate: timestamp("entry_date", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
