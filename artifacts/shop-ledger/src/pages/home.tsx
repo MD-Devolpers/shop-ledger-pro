@@ -12,7 +12,7 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { TrendingUp, TrendingDown, Wallet, CreditCard, Loader2, Trash2, Pencil, Handshake, ChevronDown, UserCheck } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Loader2, Trash2, Pencil, Handshake, ChevronDown, UserCheck, ArrowRightLeft, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -80,6 +80,8 @@ export default function Home() {
   });
 
   const isCredit = form.watch("isCredit");
+  const watchedPaymentMethod = form.watch("paymentMethod");
+  const isFundTransfer = entryType === "cash_out" && watchedPaymentMethod === "digital";
 
   // Auto-focus customer name input and show saved customers when credit is toggled on
   useEffect(() => {
@@ -111,7 +113,7 @@ export default function Home() {
           profit: data.profit != null && data.profit > 0 ? data.profit : null,
           paymentMethod: data.paymentMethod,
           isCredit: data.isCredit,
-          customerName: data.isCredit ? (data.customerName || null) : null,
+          customerName: (data.isCredit || isFundTransfer) ? (data.customerName || null) : null,
         },
       },
       {
@@ -198,12 +200,12 @@ export default function Home() {
           Cash In
         </Button>
         <Button
-          className="flex-1 h-14 bg-red-600 hover:bg-red-700 text-white shadow-lg text-base font-semibold"
+          className="flex-1 h-14 bg-red-600 hover:bg-red-700 text-white shadow-lg text-sm font-semibold"
           onClick={() => openDialog("cash_out")}
           data-testid="button-cash-out"
         >
-          <TrendingDown className="mr-2 h-5 w-5" />
-          Cash Out
+          <ArrowRightLeft className="mr-1.5 h-5 w-5 flex-shrink-0" />
+          <span className="leading-tight text-center">Cash Out /<br />Fund Transfer</span>
         </Button>
       </div>
 
@@ -333,7 +335,7 @@ export default function Home() {
         <DialogContent className="sm:max-w-md" data-testid="entry-dialog">
           <DialogHeader>
             <DialogTitle className={entryType === "cash_in" ? "text-green-600" : "text-red-600"}>
-              {entryType === "cash_in" ? "Cash In" : "Cash Out"}
+              {entryType === "cash_in" ? "Cash In" : isFundTransfer ? "Cash Out / Fund Transfer" : "Cash Out"}
             </DialogTitle>
           </DialogHeader>
           <Form {...form}>
@@ -362,9 +364,16 @@ export default function Home() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description (Optional)</FormLabel>
+                    <FormLabel>{isFundTransfer ? "Account / Phone Number (Optional)" : "Description (Optional)"}</FormLabel>
                     <FormControl>
-                      <Input placeholder="What is this for?" {...field} data-testid="input-description" />
+                      {isFundTransfer ? (
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input placeholder="03XX-XXXXXXX or account number" {...field} data-testid="input-description" className="pl-9" />
+                        </div>
+                      ) : (
+                        <Input placeholder="What is this for?" {...field} data-testid="input-description" />
+                      )}
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -416,6 +425,27 @@ export default function Home() {
                   </FormItem>
                 )}
               />
+              {isFundTransfer && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs text-blue-700 font-semibold">
+                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                    Fund Transfer Info (Optional)
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="customerName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Recipient Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Customer / recipient name" {...field} data-testid="input-transfer-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
               <div className="flex items-center gap-3">
                 <Controller
                   control={form.control}

@@ -14,6 +14,7 @@ import {
   Wallet,
   Banknote,
   Smartphone,
+  FileBarChart2,
 } from "lucide-react";
 import { useGetMe, useLogout, useGetReportSummary } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ const navItems = [
   { icon: TrendingUp, label: "Profits", href: "/profits" },
   { icon: BarChart3, label: "Reports", href: "/reports" },
   { icon: Wallet, label: "Closing", href: "/closing" },
+  { icon: FileBarChart2, label: "Digital Report", href: "/digital-report" },
 ];
 
 const secondaryNavItems = [
