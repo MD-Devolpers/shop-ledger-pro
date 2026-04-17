@@ -26,12 +26,10 @@ export default function Settings() {
   const { data: user, refetch } = useGetMe();
   const logout = useLogout();
 
-  // Change Username state
-  const [cuOpen, setCuOpen] = useState(false);
-  const [cuUsername, setCuUsername] = useState("");
-  const [cuPassword, setCuPassword] = useState("");
-  const [cuShowPassword, setCuShowPassword] = useState(false);
-  const [cuLoading, setCuLoading] = useState(false);
+  // Store Name state
+  const [snOpen, setSnOpen] = useState(false);
+  const [snValue, setSnValue] = useState("");
+  const [snLoading, setSnLoading] = useState(false);
 
   // Change Password state
   const [cpOpen, setCpOpen] = useState(false);
@@ -57,35 +55,32 @@ export default function Settings() {
 
   useEffect(() => { document.title = "Settings - LedgerEntries"; }, []);
 
-  const handleChangeUsername = async () => {
-    if (!cuUsername || !cuPassword) {
-      toast({ title: "All fields required", variant: "destructive" }); return;
+  const handleUpdateStoreName = async () => {
+    if (snValue.trim().length === 0) {
+      toast({ title: "Store name cannot be empty", variant: "destructive" }); return;
     }
-    if (cuUsername.trim().length < 3) {
-      toast({ title: "Username must be at least 3 characters", variant: "destructive" }); return;
+    if (snValue.trim().length > 60) {
+      toast({ title: "Store name must be 60 characters or less", variant: "destructive" }); return;
     }
-    if (!/^[a-zA-Z0-9_]+$/.test(cuUsername.trim())) {
-      toast({ title: "Only letters, numbers, and underscores allowed", variant: "destructive" }); return;
-    }
-    setCuLoading(true);
+    setSnLoading(true);
     try {
-      const res = await fetch("/api/auth/change-username", {
+      const res = await fetch("/api/auth/store-name", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newUsername: cuUsername.trim(), password: cuPassword }),
+        body: JSON.stringify({ storeName: snValue.trim() }),
       });
       const d = await res.json();
       if (res.ok) {
-        toast({ title: "Username updated!", description: `Your username is now "${d.username}".` });
-        setCuOpen(false);
-        setCuUsername(""); setCuPassword("");
+        toast({ title: "Store name updated!", description: `Receipts will now show "${d.storeName}".` });
+        setSnOpen(false);
+        setSnValue("");
         refetch();
         queryClient.invalidateQueries();
       } else {
         toast({ title: "Error", description: d.error, variant: "destructive" });
       }
     } finally {
-      setCuLoading(false);
+      setSnLoading(false);
     }
   };
 
@@ -263,7 +258,7 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Change Username */}
+        {/* Store Name */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-3">
@@ -271,68 +266,56 @@ export default function Settings() {
                 <Pencil className="h-6 w-6 text-violet-600" />
               </div>
               <div className="flex-1">
-                <CardTitle>Store Name / Username</CardTitle>
-                <CardDescription>Change your username (used on receipts)</CardDescription>
+                <CardTitle>Store Name</CardTitle>
+                <CardDescription>
+                  Shown on receipts — currently:{" "}
+                  <strong className="text-foreground">
+                    {(user as any)?.storeName || user?.username || "Not set"}
+                  </strong>
+                </CardDescription>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { setCuOpen(!cuOpen); setCuUsername(""); setCuPassword(""); }}
+                onClick={() => {
+                  setSnOpen(!snOpen);
+                  setSnValue((user as any)?.storeName || "");
+                }}
                 className="text-xs"
               >
-                {cuOpen ? "Cancel" : "Change"}
+                {snOpen ? "Cancel" : "Change"}
               </Button>
             </div>
           </CardHeader>
-          {cuOpen && (
+          {snOpen && (
             <CardContent className="space-y-3 pt-0">
               <div className="space-y-1.5">
-                <Label htmlFor="cu-username" className="text-xs">New Username</Label>
+                <Label htmlFor="sn-value" className="text-xs">New Store Name</Label>
                 <Input
-                  id="cu-username"
+                  id="sn-value"
                   type="text"
-                  placeholder="e.g. MobileDoctor"
-                  value={cuUsername}
-                  onChange={(e) => setCuUsername(e.target.value)}
+                  placeholder="e.g. SIAB Mobile Doctor"
+                  value={snValue}
+                  onChange={(e) => setSnValue(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleUpdateStoreName()}
                   autoComplete="off"
+                  maxLength={60}
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  3–30 characters. Letters, numbers, and underscores only. (Current: <strong>{user?.username}</strong>)
+                  Max 60 characters. Spaces allowed. This is separate from your login username.
                 </p>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="cu-password" className="text-xs">Current Password (to confirm)</Label>
-                <div className="relative">
-                  <Input
-                    id="cu-password"
-                    type={cuShowPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    value={cuPassword}
-                    onChange={(e) => setCuPassword(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleChangeUsername()}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-full w-10"
-                    onClick={() => setCuShowPassword(!cuShowPassword)}
-                  >
-                    {cuShowPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
               <p className="text-[11px] text-violet-700 bg-violet-50 rounded-lg px-3 py-2">
-                Your new username will appear on all fund transfer receipts as the store name.
+                This name will appear on all Fund Transfer / Receive receipts as the store heading.
               </p>
               <Button
                 className="w-full bg-violet-600 hover:bg-violet-700"
-                onClick={handleChangeUsername}
-                disabled={cuLoading}
+                onClick={handleUpdateStoreName}
+                disabled={snLoading}
               >
-                {cuLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {snLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Pencil className="mr-2 h-4 w-4" />
-                Update Username
+                Save Store Name
               </Button>
             </CardContent>
           )}

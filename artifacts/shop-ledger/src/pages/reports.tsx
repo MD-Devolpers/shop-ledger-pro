@@ -234,7 +234,7 @@ export default function Reports() {
                               className="h-7 px-2 text-[11px] text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 gap-1 flex-shrink-0"
                               onClick={() => {
                                 setReceiptData({
-                                  storeName: (me as any)?.username || "My Store",
+                                  storeName: (me as any)?.storeName || (me as any)?.username || "My Store",
                                   transactionType: entry.type === "cash_out" ? "Fund Transfer" : "Fund Receive",
                                   amount: entry.amount,
                                   customerName: (entry as any).customerName || null,

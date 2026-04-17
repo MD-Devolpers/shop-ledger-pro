@@ -272,6 +272,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
   res.json({
     id: user.id,
     username: user.username,
+    storeName: user.storeName ?? null,
     email: user.email,
     language: user.language,
     role: user.role,
@@ -455,6 +456,28 @@ router.patch("/auth/change-email", async (req, res): Promise<void> => {
       : "Email updated. Please verify your new email.",
     emailSent,
   });
+});
+
+// ── Update Store Name (display name on receipts — no password needed) ─────────
+router.patch("/auth/store-name", async (req, res): Promise<void> => {
+  const userId = req.session?.userId;
+  if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+
+  const { storeName } = req.body;
+  if (storeName === undefined) {
+    res.status(400).json({ error: "storeName is required" }); return;
+  }
+
+  const trimmed = typeof storeName === "string" ? storeName.trim() : "";
+  if (trimmed.length > 60) {
+    res.status(400).json({ error: "Store name must be 60 characters or less" }); return;
+  }
+
+  await db.update(usersTable)
+    .set({ storeName: trimmed || null })
+    .where(eq(usersTable.id, userId));
+
+  res.json({ message: "Store name updated", storeName: trimmed || null });
 });
 
 // ── Change Username ───────────────────────────────────────────────────────────
