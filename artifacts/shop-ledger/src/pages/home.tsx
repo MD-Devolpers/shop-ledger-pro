@@ -12,7 +12,7 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { TrendingUp, TrendingDown, Wallet, CreditCard, Loader2, Trash2, Pencil, Handshake, ChevronDown, UserCheck, ArrowRightLeft, Phone } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Loader2, Trash2, Pencil, Handshake, ChevronDown, UserCheck, ArrowRightLeft, Phone, Download, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -95,9 +95,9 @@ export default function Home() {
     }
   }, [isCredit, dialogOpen]);
 
-  const openDialog = (type: "cash_in" | "cash_out") => {
+  const openDialog = (type: "cash_in" | "cash_out", method: "cash" | "digital" = "cash") => {
     setEntryType(type);
-    form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: type === "cash_out" ? "digital" : "cash", isCredit: false, customerName: "" });
+    form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: method, isCredit: false, customerName: "" });
     setCustomerSearch("");
     setShowCustomerDropdown(false);
     setDialogOpen(true);
@@ -121,9 +121,12 @@ export default function Home() {
           queryClient.invalidateQueries({ queryKey: getGetReportSummaryQueryKey() });
           queryClient.invalidateQueries({ queryKey: getListEntriesQueryKey() });
           setDialogOpen(false);
+          const label = isFundTransfer
+            ? (entryType === "cash_in" ? "Fund Receive" : "Fund Transfer")
+            : (entryType === "cash_in" ? "Cash In" : "Cash Out");
           toast({
-            title: entryType === "cash_in" ? "Cash In recorded" : "Cash Out recorded",
-            description: `${formatCurrency(data.amount)} has been added.`,
+            title: `${label} recorded`,
+            description: `${formatCurrency(data.amount)} has been saved.`,
           });
         },
         onError: (error) => {
@@ -190,23 +193,45 @@ export default function Home() {
       </div>
 
       {/* Action Buttons */}
-      <div className="px-4 -mt-4 flex gap-3">
-        <Button
-          className="flex-1 h-14 bg-green-600 hover:bg-green-700 text-white shadow-lg text-base font-semibold"
-          onClick={() => openDialog("cash_in")}
-          data-testid="button-cash-in"
-        >
-          <TrendingUp className="mr-2 h-5 w-5" />
-          Cash In
-        </Button>
-        <Button
-          className="flex-1 h-14 bg-red-600 hover:bg-red-700 text-white shadow-lg text-sm font-semibold"
-          onClick={() => openDialog("cash_out")}
-          data-testid="button-cash-out"
-        >
-          <ArrowRightLeft className="mr-1.5 h-5 w-5 flex-shrink-0" />
-          <span className="leading-tight text-center">Cash Out /<br />Fund Transfer</span>
-        </Button>
+      <div className="px-4 -mt-4 space-y-2.5">
+        {/* Cash Row */}
+        <div className="flex gap-2.5">
+          <Button
+            className="flex-1 h-14 bg-green-600 hover:bg-green-700 text-white shadow-md text-base font-semibold rounded-xl"
+            onClick={() => openDialog("cash_in", "cash")}
+            data-testid="button-cash-in"
+          >
+            <TrendingUp className="mr-2 h-5 w-5" />
+            Cash In
+          </Button>
+          <Button
+            className="flex-1 h-14 bg-red-600 hover:bg-red-700 text-white shadow-md text-base font-semibold rounded-xl"
+            onClick={() => openDialog("cash_out", "cash")}
+            data-testid="button-cash-out"
+          >
+            <TrendingDown className="mr-2 h-5 w-5" />
+            Cash Out
+          </Button>
+        </div>
+        {/* Digital Row */}
+        <div className="flex gap-2.5">
+          <Button
+            className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-md text-sm font-semibold rounded-xl"
+            onClick={() => openDialog("cash_in", "digital")}
+            data-testid="button-fund-receive"
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            Fund Receive
+          </Button>
+          <Button
+            className="flex-1 h-12 bg-violet-600 hover:bg-violet-700 text-white shadow-md text-sm font-semibold rounded-xl"
+            onClick={() => openDialog("cash_out", "digital")}
+            data-testid="button-fund-transfer"
+          >
+            <Send className="mr-1.5 h-4 w-4" />
+            Fund Transfer
+          </Button>
+        </div>
       </div>
 
       {/* Stats Row */}
@@ -334,8 +359,14 @@ export default function Home() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md" data-testid="entry-dialog">
           <DialogHeader>
-            <DialogTitle className={entryType === "cash_in" ? "text-green-600" : "text-red-600"}>
-              {entryType === "cash_in" ? "Cash In" : isFundTransfer ? "Cash Out / Fund Transfer" : "Cash Out"}
+            <DialogTitle className={
+              isFundTransfer
+                ? (entryType === "cash_in" ? "text-blue-600" : "text-violet-600")
+                : (entryType === "cash_in" ? "text-green-600" : "text-red-600")
+            }>
+              {entryType === "cash_in"
+                ? (isFundTransfer ? "Fund Receive" : "Cash In")
+                : (isFundTransfer ? "Fund Transfer" : "Cash Out")}
             </DialogTitle>
           </DialogHeader>
           <Form {...form}>
@@ -428,8 +459,8 @@ export default function Home() {
               {isFundTransfer && (
                 <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-3">
                   <div className="flex items-center gap-1.5 text-xs text-blue-700 font-semibold">
-                    <ArrowRightLeft className="h-3.5 w-3.5" />
-                    {entryType === "cash_out" ? "Fund Transfer Info (Optional)" : "Digital Payment Info (Optional)"}
+                    {entryType === "cash_out" ? <Send className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
+                    {entryType === "cash_out" ? "Fund Transfer Details (Optional)" : "Fund Receive Details (Optional)"}
                   </div>
                   <FormField
                     control={form.control}
@@ -534,9 +565,13 @@ export default function Home() {
               <Button
                 type="submit"
                 className={`w-full h-12 text-base font-semibold ${
-                  entryType === "cash_in"
-                    ? "bg-green-600 hover:bg-green-700"
-                    : "bg-red-600 hover:bg-red-700"
+                  isFundTransfer
+                    ? entryType === "cash_in"
+                      ? "bg-blue-600 hover:bg-blue-700"
+                      : "bg-violet-600 hover:bg-violet-700"
+                    : entryType === "cash_in"
+                      ? "bg-green-600 hover:bg-green-700"
+                      : "bg-red-600 hover:bg-red-700"
                 }`}
                 disabled={createEntry.isPending}
                 data-testid="button-submit-entry"
