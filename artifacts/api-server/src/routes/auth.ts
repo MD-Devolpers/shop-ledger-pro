@@ -457,6 +457,49 @@ router.patch("/auth/change-email", async (req, res): Promise<void> => {
   });
 });
 
+// ── Change Username ───────────────────────────────────────────────────────────
+router.patch("/auth/change-username", async (req, res): Promise<void> => {
+  const userId = req.session?.userId;
+  if (!userId) { res.status(401).json({ error: "Not authenticated" }); return; }
+
+  const { newUsername, password } = req.body;
+  if (!newUsername || !password) {
+    res.status(400).json({ error: "New username and current password are required" }); return;
+  }
+
+  const trimmed = newUsername.trim();
+  if (trimmed.length < 3) {
+    res.status(400).json({ error: "Username must be at least 3 characters" }); return;
+  }
+  if (trimmed.length > 30) {
+    res.status(400).json({ error: "Username must be 30 characters or less" }); return;
+  }
+  if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
+    res.status(400).json({ error: "Username can only contain letters, numbers, and underscores" }); return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  if (!user.passwordHash) {
+    res.status(400).json({ error: "Google sign-in accounts cannot change username this way. Please contact support." });
+    return;
+  }
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) { res.status(401).json({ error: "Incorrect password" }); return; }
+
+  if (user.username.toLowerCase() === trimmed.toLowerCase()) {
+    res.status(400).json({ error: "New username is the same as your current username" }); return;
+  }
+
+  const [taken] = await db.select({ id: usersTable.id }).from(usersTable)
+    .where(eq(usersTable.username, trimmed));
+  if (taken) { res.status(409).json({ error: "Username already taken" }); return; }
+
+  await db.update(usersTable).set({ username: trimmed }).where(eq(usersTable.id, userId));
+  res.json({ message: "Username updated successfully", username: trimmed });
+});
+
 // ── Update Language ───────────────────────────────────────────────────────────
 router.patch("/auth/language", async (req, res): Promise<void> => {
   const userId = req.session?.userId;

@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useGetMe, useLogout } from "@workspace/api-client-react";
 import {
   Globe, LogOut, User, Shield, ShieldCheck, CheckCircle2,
-  XCircle, Crown, Mail, Lock, KeyRound, Loader2, Eye, EyeOff,
+  XCircle, Crown, Mail, Lock, KeyRound, Loader2, Eye, EyeOff, Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,13 @@ export default function Settings() {
   const queryClient = useQueryClient();
   const { data: user, refetch } = useGetMe();
   const logout = useLogout();
+
+  // Change Username state
+  const [cuOpen, setCuOpen] = useState(false);
+  const [cuUsername, setCuUsername] = useState("");
+  const [cuPassword, setCuPassword] = useState("");
+  const [cuShowPassword, setCuShowPassword] = useState(false);
+  const [cuLoading, setCuLoading] = useState(false);
 
   // Change Password state
   const [cpOpen, setCpOpen] = useState(false);
@@ -49,6 +56,38 @@ export default function Settings() {
   const [langLoading, setLangLoading] = useState(false);
 
   useEffect(() => { document.title = "Settings - LedgerEntries"; }, []);
+
+  const handleChangeUsername = async () => {
+    if (!cuUsername || !cuPassword) {
+      toast({ title: "All fields required", variant: "destructive" }); return;
+    }
+    if (cuUsername.trim().length < 3) {
+      toast({ title: "Username must be at least 3 characters", variant: "destructive" }); return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(cuUsername.trim())) {
+      toast({ title: "Only letters, numbers, and underscores allowed", variant: "destructive" }); return;
+    }
+    setCuLoading(true);
+    try {
+      const res = await fetch("/api/auth/change-username", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newUsername: cuUsername.trim(), password: cuPassword }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        toast({ title: "Username updated!", description: `Your username is now "${d.username}".` });
+        setCuOpen(false);
+        setCuUsername(""); setCuPassword("");
+        refetch();
+        queryClient.invalidateQueries();
+      } else {
+        toast({ title: "Error", description: d.error, variant: "destructive" });
+      }
+    } finally {
+      setCuLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     logout.mutate(undefined, {
@@ -222,6 +261,81 @@ export default function Settings() {
               </span>
             </div>
           </CardContent>
+        </Card>
+
+        {/* Change Username */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 bg-violet-50 rounded-xl flex items-center justify-center">
+                <Pencil className="h-6 w-6 text-violet-600" />
+              </div>
+              <div className="flex-1">
+                <CardTitle>Store Name / Username</CardTitle>
+                <CardDescription>Change your username (used on receipts)</CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setCuOpen(!cuOpen); setCuUsername(""); setCuPassword(""); }}
+                className="text-xs"
+              >
+                {cuOpen ? "Cancel" : "Change"}
+              </Button>
+            </div>
+          </CardHeader>
+          {cuOpen && (
+            <CardContent className="space-y-3 pt-0">
+              <div className="space-y-1.5">
+                <Label htmlFor="cu-username" className="text-xs">New Username</Label>
+                <Input
+                  id="cu-username"
+                  type="text"
+                  placeholder="e.g. MobileDoctor"
+                  value={cuUsername}
+                  onChange={(e) => setCuUsername(e.target.value)}
+                  autoComplete="off"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  3–30 characters. Letters, numbers, and underscores only. (Current: <strong>{user?.username}</strong>)
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="cu-password" className="text-xs">Current Password (to confirm)</Label>
+                <div className="relative">
+                  <Input
+                    id="cu-password"
+                    type={cuShowPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={cuPassword}
+                    onChange={(e) => setCuPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleChangeUsername()}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full w-10"
+                    onClick={() => setCuShowPassword(!cuShowPassword)}
+                  >
+                    {cuShowPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <p className="text-[11px] text-violet-700 bg-violet-50 rounded-lg px-3 py-2">
+                Your new username will appear on all fund transfer receipts as the store name.
+              </p>
+              <Button
+                className="w-full bg-violet-600 hover:bg-violet-700"
+                onClick={handleChangeUsername}
+                disabled={cuLoading}
+              >
+                {cuLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Pencil className="mr-2 h-4 w-4" />
+                Update Username
+              </Button>
+            </CardContent>
+          )}
         </Card>
 
         {/* Change Email */}
