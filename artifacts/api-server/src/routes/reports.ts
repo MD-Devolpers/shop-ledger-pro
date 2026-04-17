@@ -45,6 +45,7 @@ function formatEntry(e: typeof entriesTable.$inferSelect) {
     profit: e.profit != null ? parseFloat(e.profit) : null,
     isCredit: e.isCredit,
     customerName: e.customerName,
+    contactNumber: e.contactNumber ?? null,
     deletedAt: e.deletedAt ? e.deletedAt.toISOString() : null,
     entryDate: e.entryDate.toISOString(),
     createdAt: e.createdAt.toISOString(),

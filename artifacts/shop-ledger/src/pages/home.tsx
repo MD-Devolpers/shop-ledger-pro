@@ -353,10 +353,9 @@ export default function Home() {
                   <div className="flex gap-1">
                     {entry.paymentMethod === "digital" && !entry.isCredit && (
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        title="View Receipt"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-[11px] text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 gap-1"
                         onClick={() => {
                           setReceiptData({
                             storeName: (me as any)?.username || "My Store",
@@ -370,7 +369,8 @@ export default function Home() {
                           setReceiptOpen(true);
                         }}
                       >
-                        <Download className="h-4 w-4" />
+                        <Download className="h-3 w-3" />
+                        Receipt
                       </Button>
                     )}
                     <Button

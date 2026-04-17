@@ -227,12 +227,11 @@ export default function Reports() {
                             {entry.type === "cash_in" ? "+" : "-"}
                             {formatCurrency(entry.amount)}
                           </p>
-                          {entry.paymentMethod === "digital" && !(entry as any).isCredit && (
+                          {entry.paymentMethod === "digital" && !entry.isCredit && (
                             <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex-shrink-0"
-                              title="View Receipt"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 px-2 text-[11px] text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 gap-1 flex-shrink-0"
                               onClick={() => {
                                 setReceiptData({
                                   storeName: (me as any)?.username || "My Store",
@@ -246,7 +245,8 @@ export default function Reports() {
                                 setReceiptOpen(true);
                               }}
                             >
-                              <Download className="h-3.5 w-3.5" />
+                              <Download className="h-3 w-3" />
+                              Receipt
                             </Button>
                           )}
                         </div>
