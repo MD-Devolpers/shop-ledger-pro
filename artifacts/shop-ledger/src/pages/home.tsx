@@ -390,27 +390,24 @@ export default function Home() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{isFundTransfer ? "Account / Phone Number (Optional)" : "Description (Optional)"}</FormLabel>
-                    <FormControl>
-                      {isFundTransfer ? (
-                        <div className="relative">
-                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input placeholder="03XX-XXXXXXX or account number" {...field} data-testid="input-description" className="pl-9" />
-                        </div>
-                      ) : (
+              {/* Description — only shown when NOT digital (digital entries use the box below) */}
+              {!isFundTransfer && (
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormControl>
                         <Input placeholder="What is this for?" {...field} data-testid="input-description" />
-                      )}
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {entryType === "cash_in" && (
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {/* Profit — for Cash In and Fund Transfer */}
+              {(entryType === "cash_in" || (entryType === "cash_out" && isFundTransfer)) && (
                 <FormField
                   control={form.control}
                   name="profit"
@@ -423,7 +420,7 @@ export default function Home() {
                       <FormControl>
                         <Input
                           type="number"
-                          placeholder="Profit on this sale? (Optional)"
+                          placeholder="Profit on this transaction? (Optional)"
                           {...field}
                           value={field.value ?? ""}
                           data-testid="input-profit"
@@ -470,6 +467,19 @@ export default function Home() {
                         <FormLabel className="text-xs">{entryType === "cash_out" ? "Recipient Name" : "Customer Name"}</FormLabel>
                         <FormControl>
                           <Input placeholder="Customer Name / Account Number" {...field} data-testid="input-transfer-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Other Details (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Bank name, notes, reference..." {...field} data-testid="input-description" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

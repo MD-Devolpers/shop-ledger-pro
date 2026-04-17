@@ -92,13 +92,15 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
         totalCashOut += amount;
       }
     } else {
-      // Digital: Fund Receive (cash_in+digital) → digital up
-      //          Fund Transfer (cash_out+digital) → digital down
+      // Digital:
+      // Fund Receive (cash_in+digital): I give cash to customer → cashBalance↓, receive digital → digitalBalance↑
+      // Fund Transfer (cash_out+digital): I send from my digital account → digitalBalance↓
       if (entry.type === "cash_in") {
-        digitalBalance += amount;  // Customer sent me money digitally
+        digitalBalance += amount;  // Received digital from customer
+        cashBalance -= amount;     // Gave cash to customer
         totalCashIn += amount;
       } else {
-        digitalBalance -= amount;  // I sent money from my digital account
+        digitalBalance -= amount;  // Sent from my digital account
         totalCashOut += amount;
       }
     }
@@ -203,7 +205,8 @@ router.get("/reports/entries", requireAuth, async (req, res): Promise<void> => {
       if (entry.paymentMethod === "cash") {
         cashBalance += amount;     // Cash received → cash up
       } else {
-        digitalBalance += amount;  // Fund Receive → digital up
+        digitalBalance += amount;  // Fund Receive → digital up + cash down
+        cashBalance -= amount;
       }
     } else {
       cashOut += amount;
