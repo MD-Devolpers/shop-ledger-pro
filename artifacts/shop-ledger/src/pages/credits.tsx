@@ -210,252 +210,295 @@ function CustomerReportCard({
   const [expanded, setExpanded] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const pendingGiven = credits
+  // ── Calculations ─────────────────────────────────────────────────────────────
+  // Baqi (Remaining) = pending credit given (amount reduced by partial payments)
+  const baqi = credits
     .filter((c) => c.type === "given" && c.status === "pending")
     .reduce((s, c) => s + c.amount, 0);
-  const pendingReceived = credits
+
+  // Wasool (Collected) = all payments received from this customer via Pay button
+  const wasool = ledgerEntries
+    .filter((e) => !e.isCredit && e.type === "cash_in")
+    .reduce((s, e) => s + e.amount, 0);
+
+  // Fully settled (marked paid without payment entry)
+  const fullySettled = credits
+    .filter((c) => c.type === "given" && c.status === "paid")
+    .reduce((s, c) => s + c.amount, 0);
+
+  // What we owe customer (received type, pending)
+  const youOwe = credits
     .filter((c) => c.type === "received" && c.status === "pending")
     .reduce((s, c) => s + c.amount, 0);
-  const totalPaid = credits
-    .filter((c) => c.status === "paid")
-    .reduce((s, c) => s + c.amount, 0);
+
+  // Total credit ever given = current remaining + all collected + fully settled
+  const kulUdhaar = baqi + wasool + fullySettled;
+
   const pendingCount = credits.filter((c) => c.status === "pending").length;
   const hasPending = pendingCount > 0;
-
   const phone = credits.find((c) => c.phone)?.phone;
+  const totalItems = credits.length + ledgerEntries.length;
 
   return (
-    <div className="border rounded-xl overflow-hidden bg-card">
-      {/* Customer header row */}
+    <div className="border rounded-xl overflow-hidden bg-card shadow-sm">
+      {/* ── Customer Header ─────────────────────────────────────────────────── */}
       <button
         className="w-full flex items-center justify-between px-4 py-3 gap-3 text-left hover:bg-accent/40 transition-colors"
         onClick={() => setExpanded((e) => !e)}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <User className="h-4 w-4 text-primary" />
+          <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${
+            baqi > 0 ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+          }`}>
+            {customerName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-sm truncate">{customerName}</p>
+            <p className="font-bold text-sm truncate">{customerName}</p>
             {phone && (
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Phone className="h-3 w-3" />
-                {phone}
+                <Phone className="h-3 w-3" />{phone}
               </p>
             )}
             <div className="flex items-center gap-2 flex-wrap mt-0.5">
-              {pendingGiven > 0 && (
-                <span className="text-xs text-red-600 font-medium">
-                  Owes: {formatCurrency(pendingGiven)}
+              {baqi > 0 && (
+                <span className="text-xs font-semibold text-red-600">
+                  Baqi: {formatCurrency(baqi)}
                 </span>
               )}
-              {pendingReceived > 0 && (
-                <span className="text-xs text-green-600 font-medium">
-                  You owe: {formatCurrency(pendingReceived)}
+              {wasool > 0 && (
+                <span className="text-xs font-medium text-green-600">
+                  Wasool: {formatCurrency(wasool)}
                 </span>
               )}
-              {totalPaid > 0 && !hasPending && (
-                <span className="text-xs text-muted-foreground">
-                  Cleared: {formatCurrency(totalPaid)}
+              {youOwe > 0 && (
+                <span className="text-xs font-medium text-blue-600">
+                  Ap k zimma: {formatCurrency(youOwe)}
                 </span>
+              )}
+              {!hasPending && youOwe === 0 && (
+                <span className="text-xs font-medium text-green-600">✓ Hisab Saaf</span>
               )}
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {hasPending && (
-            <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px] h-5 px-1.5">
-              {pendingCount} pending
+            <Badge className="bg-red-100 text-red-700 border-0 text-[10px] h-5 px-1.5">
+              {pendingCount} baqi
             </Badge>
           )}
-          {!hasPending && (
+          {!hasPending && youOwe === 0 && (
             <Badge className="bg-green-100 text-green-700 border-0 text-[10px] h-5 px-1.5">
-              Clear
+              Saaf ✓
             </Badge>
           )}
-          {expanded ? (
-            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          )}
+          {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </div>
       </button>
 
-      {/* Expanded detail list */}
+      {/* ── Expanded Detail ──────────────────────────────────────────────────── */}
       {expanded && (
-        <div className="border-t bg-muted/20 px-3 py-3 space-y-2">
-          {/* Quick stats row */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            <div className="bg-red-50 border border-red-100 rounded-lg p-2 text-center">
-              <p className="text-[10px] text-red-500 font-medium">Pending Given</p>
-              <p className="text-sm font-bold text-red-700">{formatCurrency(pendingGiven)}</p>
+        <div className="border-t bg-muted/10 px-3 py-3 space-y-3">
+
+          {/* ── Summary Cards ─────────────────────────────────────────────── */}
+          <div className="grid grid-cols-3 gap-2">
+            {/* Baqi */}
+            <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-red-500 font-semibold uppercase tracking-wide">Baqi</p>
+              <p className="text-[10px] text-red-400">(Remaining)</p>
+              <p className="text-base font-bold text-red-700 mt-0.5">{formatCurrency(baqi)}</p>
             </div>
-            <div className="bg-green-50 border border-green-100 rounded-lg p-2 text-center">
-              <p className="text-[10px] text-green-500 font-medium">Pending Received</p>
-              <p className="text-sm font-bold text-green-700">{formatCurrency(pendingReceived)}</p>
+            {/* Wasool */}
+            <div className="bg-green-50 border border-green-200 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-green-600 font-semibold uppercase tracking-wide">Wasool</p>
+              <p className="text-[10px] text-green-400">(Collected)</p>
+              <p className="text-base font-bold text-green-700 mt-0.5">{formatCurrency(wasool)}</p>
             </div>
-            <div className="bg-muted border rounded-lg p-2 text-center">
-              <p className="text-[10px] text-muted-foreground font-medium">Total Paid</p>
-              <p className="text-sm font-bold">{formatCurrency(totalPaid)}</p>
+            {/* Kul Udhaar */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-2.5 text-center">
+              <p className="text-[10px] text-blue-600 font-semibold uppercase tracking-wide">Kul</p>
+              <p className="text-[10px] text-blue-400">(Total Given)</p>
+              <p className="text-base font-bold text-blue-700 mt-0.5">{formatCurrency(kulUdhaar)}</p>
             </div>
           </div>
 
-          {/* Unified chronological timeline */}
-          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide px-1 mb-2">
-            Full Transaction History ({credits.length + ledgerEntries.length} entries)
-          </p>
+          {/* You Owe section */}
+          {youOwe > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-2.5 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-blue-700">Ap K Zimma (You Owe)</p>
+                <p className="text-[10px] text-blue-500">Customer ne aap ko diya hua</p>
+              </div>
+              <p className="text-base font-bold text-blue-700">{formatCurrency(youOwe)}</p>
+            </div>
+          )}
 
-          {/* Build combined timeline: credit records + ledger entries */}
-          {(() => {
-            type TimelineItem =
-              | { kind: "credit"; data: Credit; date: Date }
-              | { kind: "entry"; data: LedgerEntry; date: Date };
+          {/* Fully settled info */}
+          {fullySettled > 0 && (
+            <div className="bg-muted/40 border rounded-lg px-3 py-2 flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">Pura Chukta (Fully Settled)</p>
+              <p className="text-sm font-semibold text-muted-foreground">{formatCurrency(fullySettled)}</p>
+            </div>
+          )}
 
-            const items: TimelineItem[] = [
-              ...credits.map((c) => ({ kind: "credit" as const, data: c, date: new Date(c.createdAt) })),
-              ...ledgerEntries.map((e) => ({ kind: "entry" as const, data: e, date: new Date(e.entryDate) })),
-            ].sort((a, b) => b.date.getTime() - a.date.getTime());
+          {/* ── Full Transaction Timeline ──────────────────────────────────── */}
+          <div>
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
+              Mukammal Hisab ({totalItems} entries)
+            </p>
 
-            if (items.length === 0) {
+            {(() => {
+              type TimelineItem =
+                | { kind: "credit"; data: Credit; date: Date }
+                | { kind: "entry"; data: LedgerEntry; date: Date };
+
+              const items: TimelineItem[] = [
+                ...credits.map((c) => ({ kind: "credit" as const, data: c, date: new Date(c.createdAt) })),
+                ...ledgerEntries.map((e) => ({ kind: "entry" as const, data: e, date: new Date(e.entryDate) })),
+              ].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+              if (items.length === 0) {
+                return <div className="text-center py-4 text-xs text-muted-foreground">Koi record nahi</div>;
+              }
+
               return (
-                <div className="text-center py-4 text-xs text-muted-foreground">
-                  No transactions found
+                <div className="space-y-2">
+                  {items.map((item) => {
+                    if (item.kind === "credit") {
+                      const credit = item.data;
+                      const isPending = credit.status === "pending";
+                      const isGiven = credit.type === "given";
+                      return (
+                        <div
+                          key={`credit-${credit.id}`}
+                          className={`border rounded-xl px-3 py-2.5 ${
+                            isPending && isGiven
+                              ? "bg-red-50 border-red-200"
+                              : isPending && !isGiven
+                              ? "bg-blue-50 border-blue-200"
+                              : "bg-green-50 border-green-200"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <Badge className={`text-[10px] px-1.5 py-0 h-4 border-0 font-semibold ${
+                                  isGiven ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
+                                }`}>
+                                  {isGiven ? "Udhaar Diya" : "Udhaar Liya"}
+                                </Badge>
+                                <Badge className={`text-[10px] px-1.5 py-0 h-4 border-0 ${
+                                  isPending ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"
+                                }`}>
+                                  {isPending ? "Baqi" : "Chukta ✓"}
+                                </Badge>
+                                {credit.dueDate && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-orange-600 border-orange-300">
+                                    Due: {format(new Date(credit.dueDate), "MMM d")}
+                                  </Badge>
+                                )}
+                              </div>
+                              {credit.description && (
+                                <p className="text-xs font-medium mt-1">{credit.description}</p>
+                              )}
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                {format(item.date, "MMM d, yyyy · h:mm a")}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                              <p className={`font-bold text-base ${isGiven ? "text-red-700" : "text-blue-700"}`}>
+                                {formatCurrency(credit.amount)}
+                              </p>
+                              <div className="flex gap-1">
+                                {isPending && isGiven && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-[11px] border-green-300 text-green-700 hover:bg-green-50 gap-1 px-2"
+                                    onClick={() => onReceivePayment(credit)}
+                                  >
+                                    <ArrowDownCircle className="h-3 w-3" />
+                                    Wasool
+                                  </Button>
+                                )}
+                                {isPending && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-green-600 hover:bg-green-50"
+                                    onClick={() => onMarkPaid(credit.id)}
+                                    title="Chukta mark karo"
+                                  >
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive"
+                                  onClick={() => onDelete(credit.id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      const entry = item.data;
+                      const isPayment = !entry.isCredit && entry.type === "cash_in";
+                      const isCreditEntry = entry.isCredit;
+                      return (
+                        <div
+                          key={`entry-${entry.id}`}
+                          className={`border rounded-xl px-3 py-2.5 flex items-center justify-between gap-2 ${
+                            isPayment ? "bg-green-50 border-green-200" : "bg-muted/30 border-muted"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {isPayment ? (
+                                <Badge className="text-[10px] px-1.5 py-0 h-4 border-0 bg-green-100 text-green-800 font-semibold">
+                                  ✓ Wasool (Payment)
+                                </Badge>
+                              ) : isCreditEntry ? (
+                                <Badge className="text-[10px] px-1.5 py-0 h-4 border-0 bg-amber-100 text-amber-700">
+                                  Udhaar Entry
+                                </Badge>
+                              ) : (
+                                <Badge className="text-[10px] px-1.5 py-0 h-4 border-0 bg-slate-100 text-slate-600">
+                                  {entry.type === "cash_in" ? "Cash In" : "Cash Out"}
+                                </Badge>
+                              )}
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-slate-500">
+                                {entry.paymentMethod === "digital" ? "Digital" : "Cash"}
+                              </Badge>
+                            </div>
+                            {entry.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{entry.description}</p>
+                            )}
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                              {format(item.date, "MMM d, yyyy · h:mm a")}
+                            </p>
+                          </div>
+                          <p className={`font-bold text-sm flex-shrink-0 ${
+                            isPayment ? "text-green-700" : entry.type === "cash_in" ? "text-green-600" : "text-red-600"
+                          }`}>
+                            {isPayment ? "+" : entry.type === "cash_in" ? "+" : "-"}
+                            {formatCurrency(entry.amount)}
+                          </p>
+                        </div>
+                      );
+                    }
+                  })}
                 </div>
               );
-            }
+            })()}
+          </div>
 
-            return items.map((item, idx) => {
-              if (item.kind === "credit") {
-                const credit = item.data;
-                return (
-                  <div
-                    key={`credit-${credit.id}`}
-                    className="bg-card border rounded-lg px-3 py-2.5 flex items-center justify-between gap-2"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-blue-100 text-blue-700 border-0">
-                          Credit Record
-                        </Badge>
-                        <Badge
-                          className={`text-[10px] px-1.5 py-0 h-4 border-0 ${
-                            credit.status === "paid"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
-                        >
-                          {credit.status === "paid" ? "Paid" : "Pending"}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] px-1.5 py-0 h-4 ${
-                            credit.type === "given"
-                              ? "text-red-600 border-red-200"
-                              : "text-green-600 border-green-200"
-                          }`}
-                        >
-                          {credit.type === "given" ? "Given" : "Received"}
-                        </Badge>
-                      </div>
-                      {credit.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{credit.description}</p>
-                      )}
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {format(item.date, "MMM d, yyyy h:mm a")}
-                        {credit.dueDate && ` · Due: ${format(new Date(credit.dueDate), "MMM d")}`}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <p className={`font-bold text-sm ${credit.type === "given" ? "text-red-600" : "text-green-600"}`}>
-                        {formatCurrency(credit.amount)}
-                      </p>
-                      {credit.status === "pending" && credit.type === "given" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-[11px] border-green-300 text-green-700 hover:bg-green-50 gap-1 px-2"
-                          onClick={() => onReceivePayment(credit)}
-                        >
-                          <ArrowDownCircle className="h-3 w-3" />
-                          Pay
-                        </Button>
-                      )}
-                      {credit.status === "pending" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-green-600 hover:bg-green-50"
-                          onClick={() => onMarkPaid(credit.id)}
-                          title="Mark paid"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
-                        onClick={() => onDelete(credit.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              } else {
-                const entry = item.data;
-                const isPayment = entry.description?.toLowerCase().includes("payment received");
-                return (
-                  <div
-                    key={`entry-${entry.id}`}
-                    className={`border rounded-lg px-3 py-2.5 flex items-center justify-between gap-2 ${
-                      isPayment ? "bg-green-50 border-green-200" : "bg-card"
-                    }`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Badge
-                          className={`text-[10px] px-1.5 py-0 h-4 border-0 ${
-                            isPayment
-                              ? "bg-green-100 text-green-700"
-                              : entry.type === "cash_in"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-red-100 text-red-700"
-                          }`}
-                        >
-                          {isPayment ? "Payment Received" : entry.type === "cash_in" ? "Cash In" : "Cash Out"}
-                        </Badge>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-slate-500">
-                          {entry.paymentMethod === "digital" ? "Digital" : "Cash"}
-                        </Badge>
-                        {entry.isCredit && (
-                          <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-100 text-amber-700 border-0">
-                            Credit Entry
-                          </Badge>
-                        )}
-                      </div>
-                      {entry.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{entry.description}</p>
-                      )}
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {format(item.date, "MMM d, yyyy h:mm a")}
-                      </p>
-                    </div>
-                    <p
-                      className={`font-bold text-sm flex-shrink-0 ${
-                        entry.type === "cash_in" ? "text-green-600" : "text-red-600"
-                      }`}
-                    >
-                      {entry.type === "cash_in" ? "+" : "-"}{formatCurrency(entry.amount)}
-                    </p>
-                  </div>
-                );
-              }
-            });
-          })()}
-
-          {/* Delete customer row */}
-          <div className="pt-2 border-t mt-2">
+          {/* ── Delete Customer ──────────────────────────────────────────────── */}
+          <div className="pt-1 border-t">
             {!confirmDelete ? (
               <Button
                 variant="ghost"
@@ -469,22 +512,14 @@ function CustomerReportCard({
             ) : (
               <div className="flex items-center gap-2 bg-destructive/5 border border-destructive/20 rounded-lg px-3 py-2">
                 <p className="text-xs text-destructive flex-1 font-medium">
-                  Delete all {credits.length} credit record{credits.length !== 1 ? "s" : ""} for {customerName}?
+                  Delete all {credits.length} record{credits.length !== 1 ? "s" : ""} for {customerName}?
                 </p>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="h-7 text-[11px] px-2"
-                  onClick={() => { onDeleteCustomer(credits); setConfirmDelete(false); }}
-                >
-                  Yes, Delete
+                <Button variant="destructive" size="sm" className="h-7 text-[11px] px-2"
+                  onClick={() => { onDeleteCustomer(credits); setConfirmDelete(false); }}>
+                  Yes
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-[11px] px-2"
-                  onClick={() => setConfirmDelete(false)}
-                >
+                <Button variant="outline" size="sm" className="h-7 text-[11px] px-2"
+                  onClick={() => setConfirmDelete(false)}>
                   Cancel
                 </Button>
               </div>
