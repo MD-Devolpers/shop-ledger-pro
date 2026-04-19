@@ -205,10 +205,14 @@ export default function Home() {
           <div className="flex flex-col gap-1 bg-amber-400/30 border border-amber-300/30 rounded-xl px-3 py-2">
             <div className="flex items-center gap-1.5">
               <Handshake className="h-3.5 w-3.5 opacity-80" />
-              <p className="text-[11px] opacity-80">Credit</p>
+              <p className="text-[11px] opacity-80">Aaj Credit</p>
             </div>
             <p className="text-sm font-bold" data-testid="credit-balance">
-              {formatCurrency(summary?.creditBalance ?? 0)}
+              {formatCurrency(
+                (todayEntries ?? [])
+                  .filter((e) => e.isCredit && e.type === "cash_in")
+                  .reduce((s, e) => s + e.amount, 0)
+              )}
             </p>
           </div>
         </div>
@@ -271,13 +275,9 @@ export default function Home() {
           </p>
         </div>
         <div className="bg-card border rounded-xl p-3 text-center">
-          <p className="text-xs text-muted-foreground">Today's Credit</p>
+          <p className="text-xs text-muted-foreground">Kul Credit</p>
           <p className="text-lg font-bold text-amber-600" data-testid="total-credit">
-            {formatCurrency(
-              (todayEntries ?? [])
-                .filter((e) => e.isCredit && e.type === "cash_in")
-                .reduce((s, e) => s + e.amount, 0)
-            )}
+            {formatCurrency(summary?.creditBalance ?? 0)}
           </p>
         </div>
       </div>
