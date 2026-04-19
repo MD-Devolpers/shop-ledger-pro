@@ -243,12 +243,13 @@ function CustomerReportCard({
     <div className="border rounded-xl overflow-hidden bg-card shadow-sm">
       {/* ── Customer Header ─────────────────────────────────────────────────── */}
       <button
-        className="w-full flex items-center justify-between px-4 py-3 gap-3 text-left hover:bg-accent/40 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 gap-2 text-left hover:bg-accent/40 transition-colors"
         onClick={() => setExpanded((e) => !e)}
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${
-            baqi > 0 ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+        {/* Left: avatar + name + phone */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-base ${
+            baqi > 0 ? "bg-red-100 text-red-700" : youOwe > 0 ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
           }`}>
             {customerName.charAt(0).toUpperCase()}
           </div>
@@ -259,39 +260,31 @@ function CustomerReportCard({
                 <Phone className="h-3 w-3" />{phone}
               </p>
             )}
-            <div className="flex items-center gap-2 flex-wrap mt-0.5">
-              {baqi > 0 && (
-                <span className="text-xs font-semibold text-red-600">
-                  Baqi: {formatCurrency(baqi)}
-                </span>
-              )}
-              {wasool > 0 && (
-                <span className="text-xs font-medium text-green-600">
-                  Wasool: {formatCurrency(wasool)}
-                </span>
-              )}
-              {youOwe > 0 && (
-                <span className="text-xs font-medium text-blue-600">
-                  Ap k zimma: {formatCurrency(youOwe)}
-                </span>
-              )}
-              {!hasPending && youOwe === 0 && (
-                <span className="text-xs font-medium text-green-600">✓ Hisab Saaf</span>
-              )}
-            </div>
+            {wasool > 0 && (
+              <p className="text-[11px] text-green-600 font-medium mt-0.5">
+                Wasool: {formatCurrency(wasool)}
+              </p>
+            )}
           </div>
         </div>
+
+        {/* Right: Baqi amount (big) + chevron */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {hasPending && (
-            <Badge className="bg-red-100 text-red-700 border-0 text-[10px] h-5 px-1.5">
-              {pendingCount} baqi
-            </Badge>
-          )}
-          {!hasPending && youOwe === 0 && (
-            <Badge className="bg-green-100 text-green-700 border-0 text-[10px] h-5 px-1.5">
-              Saaf ✓
-            </Badge>
-          )}
+          <div className="text-right">
+            {baqi > 0 ? (
+              <>
+                <p className="text-[10px] text-red-500 font-semibold uppercase">Baqi</p>
+                <p className="text-lg font-bold text-red-600 leading-tight">{formatCurrency(baqi)}</p>
+              </>
+            ) : youOwe > 0 ? (
+              <>
+                <p className="text-[10px] text-blue-500 font-semibold uppercase">Ap k Zimma</p>
+                <p className="text-lg font-bold text-blue-600 leading-tight">{formatCurrency(youOwe)}</p>
+              </>
+            ) : (
+              <p className="text-sm font-bold text-green-600">Saaf ✓</p>
+            )}
+          </div>
           {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
         </div>
       </button>
