@@ -262,7 +262,7 @@ function CustomerReportCard({
             )}
             {wasool > 0 && (
               <p className="text-[11px] text-green-600 font-medium mt-0.5">
-                Wasool: {formatCurrency(wasool)}
+                Collected: {formatCurrency(wasool)}
               </p>
             )}
           </div>
@@ -273,16 +273,16 @@ function CustomerReportCard({
           <div className="text-right">
             {baqi > 0 ? (
               <>
-                <p className="text-[10px] text-red-500 font-semibold uppercase">Baqi</p>
+                <p className="text-[10px] text-red-500 font-semibold uppercase">Remaining</p>
                 <p className="text-lg font-bold text-red-600 leading-tight">{formatCurrency(baqi)}</p>
               </>
             ) : youOwe > 0 ? (
               <>
-                <p className="text-[10px] text-blue-500 font-semibold uppercase">Ap k Zimma</p>
+                <p className="text-[10px] text-blue-500 font-semibold uppercase">You Owe</p>
                 <p className="text-lg font-bold text-blue-600 leading-tight">{formatCurrency(youOwe)}</p>
               </>
             ) : (
-              <p className="text-sm font-bold text-green-600">Saaf ✓</p>
+              <p className="text-sm font-bold text-green-600">Cleared ✓</p>
             )}
           </div>
           {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -295,22 +295,22 @@ function CustomerReportCard({
 
           {/* ── Summary Cards ─────────────────────────────────────────────── */}
           <div className="grid grid-cols-3 gap-2">
-            {/* Baqi */}
+            {/* Remaining */}
             <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 text-center">
-              <p className="text-[10px] text-red-500 font-semibold uppercase tracking-wide">Baqi</p>
-              <p className="text-[10px] text-red-400">(Remaining)</p>
+              <p className="text-[10px] text-red-500 font-semibold uppercase tracking-wide">Remaining</p>
+              <p className="text-[10px] text-red-400">(Balance Due)</p>
               <p className="text-base font-bold text-red-700 mt-0.5">{formatCurrency(baqi)}</p>
             </div>
-            {/* Wasool */}
+            {/* Collected */}
             <div className="bg-green-50 border border-green-200 rounded-xl p-2.5 text-center">
-              <p className="text-[10px] text-green-600 font-semibold uppercase tracking-wide">Wasool</p>
-              <p className="text-[10px] text-green-400">(Collected)</p>
+              <p className="text-[10px] text-green-600 font-semibold uppercase tracking-wide">Collected</p>
+              <p className="text-[10px] text-green-400">(Payments)</p>
               <p className="text-base font-bold text-green-700 mt-0.5">{formatCurrency(wasool)}</p>
             </div>
-            {/* Kul Udhaar */}
+            {/* Total */}
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-2.5 text-center">
-              <p className="text-[10px] text-blue-600 font-semibold uppercase tracking-wide">Kul</p>
-              <p className="text-[10px] text-blue-400">(Total Given)</p>
+              <p className="text-[10px] text-blue-600 font-semibold uppercase tracking-wide">Total</p>
+              <p className="text-[10px] text-blue-400">(Credit Given)</p>
               <p className="text-base font-bold text-blue-700 mt-0.5">{formatCurrency(kulUdhaar)}</p>
             </div>
           </div>
@@ -319,8 +319,8 @@ function CustomerReportCard({
           {youOwe > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-2.5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-blue-700">Ap K Zimma (You Owe)</p>
-                <p className="text-[10px] text-blue-500">Customer ne aap ko diya hua</p>
+                <p className="text-xs font-semibold text-blue-700">You Owe Customer</p>
+                <p className="text-[10px] text-blue-500">Amount customer gave you</p>
               </div>
               <p className="text-base font-bold text-blue-700">{formatCurrency(youOwe)}</p>
             </div>
@@ -329,7 +329,7 @@ function CustomerReportCard({
           {/* Fully settled info */}
           {fullySettled > 0 && (
             <div className="bg-muted/40 border rounded-lg px-3 py-2 flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Pura Chukta (Fully Settled)</p>
+              <p className="text-xs text-muted-foreground">Fully Settled</p>
               <p className="text-sm font-semibold text-muted-foreground">{formatCurrency(fullySettled)}</p>
             </div>
           )}
@@ -337,7 +337,7 @@ function CustomerReportCard({
           {/* ── Full Transaction Timeline ──────────────────────────────────── */}
           <div>
             <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide mb-2">
-              Mukammal Hisab ({totalItems} entries)
+              Full Transaction History ({totalItems} entries)
             </p>
 
             {(() => {
@@ -351,7 +351,7 @@ function CustomerReportCard({
               ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
               if (items.length === 0) {
-                return <div className="text-center py-4 text-xs text-muted-foreground">Koi record nahi</div>;
+                return <div className="text-center py-4 text-xs text-muted-foreground">No records found</div>;
               }
 
               return (
@@ -378,12 +378,12 @@ function CustomerReportCard({
                                 <Badge className={`text-[10px] px-1.5 py-0 h-4 border-0 font-semibold ${
                                   isGiven ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
                                 }`}>
-                                  {isGiven ? "Udhaar Diya" : "Udhaar Liya"}
+                                  {isGiven ? "Credit Given" : "Credit Taken"}
                                 </Badge>
                                 <Badge className={`text-[10px] px-1.5 py-0 h-4 border-0 ${
                                   isPending ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"
                                 }`}>
-                                  {isPending ? "Baqi" : "Chukta ✓"}
+                                  {isPending ? "Pending" : "Settled ✓"}
                                 </Badge>
                                 {credit.dueDate && (
                                   <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 text-orange-600 border-orange-300">
@@ -411,7 +411,7 @@ function CustomerReportCard({
                                     onClick={() => onReceivePayment(credit)}
                                   >
                                     <ArrowDownCircle className="h-3 w-3" />
-                                    Wasool
+                                    Collect
                                   </Button>
                                 )}
                                 {isPending && (
@@ -420,7 +420,7 @@ function CustomerReportCard({
                                     size="icon"
                                     className="h-7 w-7 text-green-600 hover:bg-green-50"
                                     onClick={() => onMarkPaid(credit.id)}
-                                    title="Chukta mark karo"
+                                    title="Mark Settled"
                                   >
                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                   </Button>
@@ -453,11 +453,11 @@ function CustomerReportCard({
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {isPayment ? (
                                 <Badge className="text-[10px] px-1.5 py-0 h-4 border-0 bg-green-100 text-green-800 font-semibold">
-                                  ✓ Wasool (Payment)
+                                  ✓ Payment Received
                                 </Badge>
                               ) : isCreditEntry ? (
                                 <Badge className="text-[10px] px-1.5 py-0 h-4 border-0 bg-amber-100 text-amber-700">
-                                  Udhaar Entry
+                                  Credit Entry
                                 </Badge>
                               ) : (
                                 <Badge className="text-[10px] px-1.5 py-0 h-4 border-0 bg-slate-100 text-slate-600">
