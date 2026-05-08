@@ -27,16 +27,11 @@ import {
   Wallet,
   ChevronDown,
   ChevronUp,
-  User,
-  FileText,
-  Eye,
-  EyeOff,
   Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -531,9 +526,6 @@ export default function Credits() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedCredit, setSelectedCredit] = useState<Credit | null>(null);
-  const [tab, setTab] = useState("given");
-  const [showPaidGiven, setShowPaidGiven] = useState(false);
-  const [showPaidReceived, setShowPaidReceived] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
   const [reportSearch, setReportSearch] = useState("");
 
@@ -565,20 +557,6 @@ export default function Credits() {
     resolver: zodResolver(receivePaymentSchema),
     defaultValues: { amountReceived: 0, paymentMethod: "cash" },
   });
-
-  // Pending-only by default; toggle to see paid history
-  const givenCredits = credits?.filter((c) => c.type === "given") ?? [];
-  const receivedCredits = credits?.filter((c) => c.type === "received") ?? [];
-
-  const filteredGiven = showPaidGiven
-    ? givenCredits
-    : givenCredits.filter((c) => c.status === "pending");
-  const filteredReceived = showPaidReceived
-    ? receivedCredits
-    : receivedCredits.filter((c) => c.status === "pending");
-
-  const paidGivenCount = givenCredits.filter((c) => c.status === "paid").length;
-  const paidReceivedCount = receivedCredits.filter((c) => c.status === "paid").length;
 
   // Group ALL credits by customer for the report view
   const customerMap = new Map<string, Credit[]>();
@@ -786,11 +764,6 @@ export default function Credits() {
     credits
       ?.filter((c) => c.type === "received" && c.status === "pending")
       .reduce((sum, c) => sum + c.amount, 0) ?? 0;
-  // All-time totals (pending + paid combined)
-  const allTimeGiven =
-    credits?.filter((c) => c.type === "given").reduce((sum, c) => sum + c.amount, 0) ?? 0;
-  const allTimeReceived =
-    credits?.filter((c) => c.type === "received").reduce((sum, c) => sum + c.amount, 0) ?? 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -807,7 +780,7 @@ export default function Credits() {
 
       <div className="flex-1 overflow-auto p-4">
         {/* Summary */}
-        <div className="grid grid-cols-2 gap-3 mb-3">
+        <div className="grid grid-cols-2 gap-3 mb-4">
           <div className="bg-red-50 border border-red-100 rounded-xl p-3">
             <p className="text-xs text-red-600 font-medium">Pending Given</p>
             <p className="text-lg font-bold text-red-700">{formatCurrency(totalGiven)}</p>
@@ -820,282 +793,57 @@ export default function Credits() {
           </div>
         </div>
 
-        {/* Total Credit Overview (all-time: old + new) */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Total Credit Overview (All Time)</p>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="text-center">
-              <p className="text-[10px] text-slate-400">Total Given</p>
-              <p className="text-sm font-bold text-red-600">{formatCurrency(allTimeGiven)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-slate-400">Total Taken</p>
-              <p className="text-sm font-bold text-orange-600">{formatCurrency(allTimeReceived)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] text-slate-400">Net Due</p>
-              <p className={`text-sm font-bold ${allTimeGiven - allTimeReceived >= 0 ? "text-primary" : "text-red-600"}`}>
-                {formatCurrency(Math.abs(allTimeGiven - allTimeReceived))}
-              </p>
-            </div>
-          </div>
+        {/* Search */}
+        <div className="mb-3">
+          <Input
+            placeholder="Search by customer name..."
+            value={reportSearch}
+            onChange={(e) => setReportSearch(e.target.value)}
+            className="h-9 text-sm"
+            data-testid="input-customer-search"
+          />
         </div>
 
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="w-full mb-4 grid grid-cols-3">
-            <TabsTrigger value="given" data-testid="tab-given">
-              Given
-              {givenCredits.filter((c) => c.status === "pending").length > 0 && (
-                <span className="ml-1 bg-red-100 text-red-700 text-[9px] rounded-full px-1.5 py-0.5 font-bold">
-                  {givenCredits.filter((c) => c.status === "pending").length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="received" data-testid="tab-received">
-              Received
-              {receivedCredits.filter((c) => c.status === "pending").length > 0 && (
-                <span className="ml-1 bg-green-100 text-green-700 text-[9px] rounded-full px-1.5 py-0.5 font-bold">
-                  {receivedCredits.filter((c) => c.status === "pending").length}
-                </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="customers" data-testid="tab-customers">
-              <FileText className="h-3.5 w-3.5 mr-1" />
-              Customers
-            </TabsTrigger>
-          </TabsList>
-
-          {/* ── Given tab ── */}
-          <TabsContent value="given" className="space-y-2 mt-0">
-            {filteredGiven.some((c) => c.status === "pending") && (
-              <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-2">
-                <ArrowDownCircle className="h-3.5 w-3.5 flex-shrink-0" />
-                <span>Press "Receive" when the customer pays — amount will be added to cash or digital balance.</span>
-              </div>
-            )}
-            {/* Paid history toggle */}
-            {paidGivenCount > 0 && (
-              <button
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-1 pb-1"
-                onClick={() => setShowPaidGiven((v) => !v)}
-              >
-                {showPaidGiven ? (
-                  <><EyeOff className="h-3.5 w-3.5" /> Hide paid credits ({paidGivenCount})</>
-                ) : (
-                  <><Eye className="h-3.5 w-3.5" /> Show paid history ({paidGivenCount})</>
-                )}
-              </button>
-            )}
-            {isLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-20 bg-card border rounded-xl animate-pulse" />
-                ))}
-              </div>
-            ) : filteredGiven.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">
-                  {givenCredits.length > 0
-                    ? "All credits paid! 🎉"
-                    : "No given credits yet"}
-                </p>
-                {givenCredits.length > 0 && !showPaidGiven && (
-                  <button
-                    className="text-xs text-primary mt-2 underline"
-                    onClick={() => setShowPaidGiven(true)}
-                  >
-                    View history
-                  </button>
-                )}
-              </div>
-            ) : (
-              filteredGiven
-                .slice()
-                .sort((a, b) => {
-                  if (a.status === "pending" && b.status !== "pending") return -1;
-                  if (a.status !== "pending" && b.status === "pending") return 1;
-                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                })
-                .map((credit) => (
-                  <CreditCard
-                    key={credit.id}
-                    credit={credit}
-                    onMarkPaid={handleMarkPaid}
-                    onDelete={handleDelete}
-                    onReceivePayment={openReceivePayment}
-                  />
-                ))
-            )}
-          </TabsContent>
-
-          {/* ── Received tab ── */}
-          <TabsContent value="received" className="space-y-2 mt-0">
-            {/* Received balance card */}
-            {receivedCredits.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <div className="bg-orange-50 border border-orange-100 rounded-xl p-3">
-                  <p className="text-[11px] text-orange-600 font-medium">You Owe</p>
-                  <p className="text-base font-bold text-orange-700">{formatCurrency(totalReceived)}</p>
-                  <p className="text-[10px] text-orange-400">Pending amount</p>
-                </div>
-                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-                  <p className="text-[11px] text-slate-600 font-medium">Cleared</p>
-                  <p className="text-base font-bold text-slate-700">
-                    {formatCurrency(
-                      receivedCredits
-                        .filter((c) => c.status === "paid")
-                        .reduce((s, c) => s + c.amount, 0)
-                    )}
-                  </p>
-                  <p className="text-[10px] text-slate-400">{paidReceivedCount} paid</p>
-                </div>
-              </div>
-            )}
-            {/* Paid history toggle */}
-            {paidReceivedCount > 0 && (
-              <button
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-1 pb-1"
-                onClick={() => setShowPaidReceived((v) => !v)}
-              >
-                {showPaidReceived ? (
-                  <><EyeOff className="h-3.5 w-3.5" /> Hide paid credits ({paidReceivedCount})</>
-                ) : (
-                  <><Eye className="h-3.5 w-3.5" /> Show paid history ({paidReceivedCount})</>
-                )}
-              </button>
-            )}
-            {isLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-20 bg-card border rounded-xl animate-pulse" />
-                ))}
-              </div>
-            ) : receivedCredits.length === 0 ? (
-              <div className="flex flex-col gap-3">
-                {/* Explanation card */}
-                <div className="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
-                  <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-3">
-                    <ArrowDownCircle className="h-6 w-6 text-orange-500" />
-                  </div>
-                  <p className="font-semibold text-sm text-orange-800 mb-1">Credit Taken (You Owe)</p>
-                  <p className="text-xs text-orange-600 leading-relaxed">
-                    When you receive goods from a supplier on credit — record it here. This is money <strong>you owe to others</strong>.
-                  </p>
-                </div>
-
-                {/* How to add */}
-                <div className="bg-card border rounded-xl p-3 space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">How to add?</p>
-                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                    <p><strong>Manual:</strong> Tap "+ Add Credit" above and select type "Received (You Took)"</p>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                    <span className="h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                    <p><strong>Auto:</strong> On the home screen, add a Cash Out entry and toggle "Mark as Credit" — it will appear here automatically</p>
-                  </div>
-                </div>
-
-                {/* Quick add button */}
-                <Button
-                  variant="outline"
-                  className="w-full border-orange-200 text-orange-700 hover:bg-orange-50 gap-2"
-                  onClick={() => {
-                    form.reset({ customerName: "", phone: "", amount: 0, description: "", type: "received", dueDate: "" });
-                    setDialogOpen(true);
-                  }}
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Received Credit Now
-                </Button>
-              </div>
-            ) : filteredReceived.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <p className="font-medium text-green-600">All cleared! 🎉</p>
-                <p className="text-xs mt-1">No pending received credits</p>
-                {!showPaidReceived && (
-                  <button
-                    className="text-xs text-primary mt-2 underline"
-                    onClick={() => setShowPaidReceived(true)}
-                  >
-                    History dekhein
-                  </button>
-                )}
-              </div>
-            ) : (
-              filteredReceived
-                .slice()
-                .sort((a, b) => {
-                  if (a.status === "pending" && b.status !== "pending") return -1;
-                  if (a.status !== "pending" && b.status === "pending") return 1;
-                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                })
-                .map((credit) => (
-                  <CreditCard
-                    key={credit.id}
-                    credit={credit}
-                    onMarkPaid={handleMarkPaid}
-                    onDelete={handleDelete}
-                    onReceivePayment={openReceivePayment}
-                  />
-                ))
-            )}
-          </TabsContent>
-
-          {/* ── Customers report tab ── */}
-          <TabsContent value="customers" className="mt-0">
-            <div className="mb-3">
-              <Input
-                placeholder="Search by customer name..."
-                value={reportSearch}
-                onChange={(e) => setReportSearch(e.target.value)}
-                className="h-9 text-sm"
-                data-testid="input-customer-search"
+        {/* Customers List */}
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-card border rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : filteredCustomers.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">
+              {reportSearch ? "No customer found" : "No credits added yet"}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground px-1 mb-2">
+              {filteredCustomers.length} customer{filteredCustomers.length !== 1 ? "s" : ""} — tap to expand
+            </p>
+            {filteredCustomers.map(([name, customerCredits]) => (
+              <CustomerReportCard
+                key={name}
+                customerName={name}
+                credits={customerCredits}
+                ledgerEntries={
+                  (() => {
+                    const match = [...customerEntriesMap.entries()].find(
+                      ([k]) => k.toLowerCase() === name.toLowerCase()
+                    );
+                    return match ? match[1] : [];
+                  })()
+                }
+                onMarkPaid={handleMarkPaid}
+                onDelete={handleDelete}
+                onReceivePayment={openReceivePayment}
+                onDeleteCustomer={handleDeleteCustomer}
               />
-            </div>
-
-            {isLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-16 bg-card border rounded-xl animate-pulse" />
-                ))}
-              </div>
-            ) : filteredCustomers.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">
-                  {reportSearch ? "No customer found" : "No credits added yet"}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground px-1 mb-2">
-                  {filteredCustomers.length} customer{filteredCustomers.length !== 1 ? "s" : ""} — tap to expand
-                </p>
-                {filteredCustomers.map(([name, customerCredits]) => (
-                  <CustomerReportCard
-                    key={name}
-                    customerName={name}
-                    credits={customerCredits}
-                    ledgerEntries={
-                      (() => {
-                        const match = [...customerEntriesMap.entries()].find(
-                          ([k]) => k.toLowerCase() === name.toLowerCase()
-                        );
-                        return match ? match[1] : [];
-                      })()
-                    }
-                    onMarkPaid={handleMarkPaid}
-                    onDelete={handleDelete}
-                    onReceivePayment={openReceivePayment}
-                    onDeleteCustomer={handleDeleteCustomer}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ─── Receive Payment Dialog ─── */}
