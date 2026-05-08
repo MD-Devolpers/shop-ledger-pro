@@ -26,7 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, getDaysInMonth, startOfMonth } from "date-fns";
+import { format, getDaysInMonth, subDays, getWeek, startOfYear } from "date-fns";
 import ReceiptModal, { type ReceiptData } from "@/components/receipt-modal";
 import {
   BarChart,
@@ -58,6 +58,7 @@ export default function Reports() {
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
+  const [graphFilter, setGraphFilter] = useState<"7days" | "weekly" | "monthly">("7days");
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const { data: me } = useGetMe();
@@ -81,6 +82,11 @@ export default function Reports() {
     { query: { queryKey: [...getGetProfitReportQueryKey({ period: "monthly" }), "monthly-tab"], refetchInterval: 30000 } }
   );
 
+  const { data: yearlyProfitReport } = useGetProfitReport(
+    { period: "yearly" },
+    { query: { queryKey: [...getGetProfitReportQueryKey({ period: "yearly" }), "yearly-chart"], refetchInterval: 60000 } }
+  );
+
   const { data: summary } = useGetReportSummary({
     query: { queryKey: getGetReportSummaryQueryKey(), refetchInterval: 30000 },
   } as any);
@@ -97,27 +103,83 @@ export default function Reports() {
 
   const currentMonthName = format(new Date(), "MMMM yyyy");
 
-  // Build day-wise profit chart data for current month
+  // ── Chart data based on selected filter ──
   const chartData = (() => {
     const now = new Date();
-    const daysInMonth = getDaysInMonth(now);
-    const profitByDay: Record<number, number> = {};
 
+    if (graphFilter === "7days") {
+      // Last 7 days with day names
+      const days = Array.from({ length: 7 }, (_, i) => subDays(now, 6 - i));
+      const profitByDate: Record<string, number> = {};
+      (monthlyProfitReport?.entriesWithProfit ?? [])
+        .filter((e) => e.profit != null)
+        .forEach((e) => {
+          const key = format(new Date(e.entryDate), "yyyy-MM-dd");
+          profitByDate[key] = (profitByDate[key] ?? 0) + (e.profit ?? 0);
+        });
+      return days.map((d) => ({
+        label: format(d, "EEE"),   // Mon, Tue, Wed…
+        fullLabel: format(d, "EEE, MMM d"),
+        profit: profitByDate[format(d, "yyyy-MM-dd")] ?? 0,
+      }));
+    }
+
+    if (graphFilter === "weekly") {
+      // Current month split into weeks (Wk 1 … Wk 5)
+      const daysInMonth = getDaysInMonth(now);
+      const profitByDay: Record<number, number> = {};
+      (monthlyProfitReport?.entriesWithProfit ?? [])
+        .filter((e) => e.profit != null)
+        .forEach((e) => {
+          const d = new Date(e.entryDate).getDate();
+          profitByDay[d] = (profitByDay[d] ?? 0) + (e.profit ?? 0);
+        });
+      const weeks: { label: string; fullLabel: string; profit: number }[] = [];
+      for (let start = 1; start <= daysInMonth; start += 7) {
+        const end = Math.min(start + 6, daysInMonth);
+        const wkNum = Math.ceil(start / 7);
+        let total = 0;
+        for (let d = start; d <= end; d++) total += profitByDay[d] ?? 0;
+        weeks.push({
+          label: `Wk ${wkNum}`,
+          fullLabel: `Week ${wkNum} (${format(new Date(now.getFullYear(), now.getMonth(), start), "MMM d")} – ${format(new Date(now.getFullYear(), now.getMonth(), end), "MMM d")})`,
+          profit: total,
+        });
+      }
+      return weeks;
+    }
+
+    // Monthly: aggregate yearly data by month name
+    const profitByMonth: Record<number, number> = {};
+    (yearlyProfitReport?.entriesWithProfit ?? [])
+      .filter((e) => e.profit != null)
+      .forEach((e) => {
+        const m = new Date(e.entryDate).getMonth(); // 0-11
+        profitByMonth[m] = (profitByMonth[m] ?? 0) + (e.profit ?? 0);
+      });
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return Array.from({ length: 12 }, (_, m) => ({
+      label: monthNames[m],
+      fullLabel: format(new Date(now.getFullYear(), m, 1), "MMMM yyyy"),
+      profit: profitByMonth[m] ?? 0,
+    }));
+  })();
+
+  // ── Daily-grouped profit for the list below the chart ──
+  const dailySummary = (() => {
+    const byDate: Record<string, { dateObj: Date; profit: number; entries: number }> = {};
     (monthlyProfitReport?.entriesWithProfit ?? [])
       .filter((e) => e.profit != null)
       .forEach((e) => {
-        const d = new Date(e.entryDate).getDate();
-        profitByDay[d] = (profitByDay[d] ?? 0) + (e.profit ?? 0);
+        const key = format(new Date(e.entryDate), "yyyy-MM-dd");
+        if (!byDate[key]) byDate[key] = { dateObj: new Date(e.entryDate), profit: 0, entries: 0 };
+        byDate[key].profit += e.profit ?? 0;
+        byDate[key].entries += 1;
       });
-
-    return Array.from({ length: daysInMonth }, (_, i) => ({
-      day: i + 1,
-      label: `${i + 1}`,
-      profit: profitByDay[i + 1] ?? 0,
-    })).filter((d) => d.profit > 0 || d.day <= new Date().getDate());
+    return Object.entries(byDate)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, v]) => ({ key, ...v }));
   })();
-
-  const maxProfit = Math.max(...chartData.map((d) => d.profit), 1);
 
   // Date tab summary
   const dateTotal = {
@@ -487,72 +549,104 @@ export default function Reports() {
               </div>
             </div>
 
-            {/* ── Bar Chart — Day-wise profit ── */}
-            {!monthlyProfitLoading && chartData.some((d) => d.profit > 0) && (
-              <div className="bg-card border rounded-xl p-3 mb-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                  Day-wise Profit — {currentMonthName}
+            {/* ── Statistics Chart ── */}
+            <div className="bg-card border rounded-xl p-3 mb-4">
+              {/* Filter buttons */}
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Statistics
                 </p>
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fontSize: 10, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                      interval={chartData.length > 15 ? 2 : 0}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10, fill: "#94a3b8" }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={formatShort}
-                    />
-                    <Tooltip
-                      formatter={(value: number) => [formatCurrency(value), "Profit"]}
-                      labelFormatter={(label) => `Day ${label}`}
-                      contentStyle={{
-                        fontSize: 12,
-                        borderRadius: 8,
-                        border: "1px solid #e2e8f0",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                      }}
-                    />
-                    <Bar
-                      dataKey="profit"
-                      fill="#f59e0b"
-                      radius={[4, 4, 0, 0]}
-                      maxBarSize={28}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-
-                {/* Peak day callout */}
-                {(() => {
-                  const peak = chartData.reduce((a, b) => (b.profit > a.profit ? b : a), chartData[0]);
-                  if (!peak || peak.profit === 0) return null;
-                  return (
-                    <div className="mt-2 flex items-center justify-between bg-amber-50 rounded-lg px-3 py-1.5">
-                      <p className="text-[11px] text-amber-700 font-medium">Best Day: {format(new Date(new Date().getFullYear(), new Date().getMonth(), peak.day), "MMMM d")}</p>
-                      <p className="text-[11px] font-bold text-amber-700">{formatCurrency(peak.profit)}</p>
-                    </div>
-                  );
-                })()}
+                <div className="flex gap-1">
+                  {(["7days", "weekly", "monthly"] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setGraphFilter(f)}
+                      className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-colors ${
+                        graphFilter === f
+                          ? "bg-amber-500 text-white"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {f === "7days" ? "7 Days" : f === "weekly" ? "Weekly" : "Monthly"}
+                    </button>
+                  ))}
+                </div>
               </div>
-            )}
 
-            {/* Entry list */}
+              {monthlyProfitLoading ? (
+                <div className="h-[180px] bg-muted/30 rounded-lg animate-pulse" />
+              ) : chartData.every((d) => d.profit === 0) ? (
+                <div className="h-[140px] flex items-center justify-center text-muted-foreground">
+                  <p className="text-sm">No profit data for this period</p>
+                </div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 10, fill: "#94a3b8" }}
+                        axisLine={false}
+                        tickLine={false}
+                        interval={0}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 10, fill: "#94a3b8" }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={formatShort}
+                      />
+                      <Tooltip
+                        formatter={(value: number) => [formatCurrency(value), "Profit"]}
+                        labelFormatter={(label) => {
+                          const item = chartData.find((d) => d.label === label);
+                          return item?.fullLabel ?? label;
+                        }}
+                        contentStyle={{
+                          fontSize: 12,
+                          borderRadius: 8,
+                          border: "1px solid #e2e8f0",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                        }}
+                      />
+                      <Bar
+                        dataKey="profit"
+                        fill="#f59e0b"
+                        radius={[4, 4, 0, 0]}
+                        maxBarSize={32}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+
+                  {/* Peak callout */}
+                  {(() => {
+                    const peak = [...chartData].sort((a, b) => b.profit - a.profit)[0];
+                    if (!peak || peak.profit === 0) return null;
+                    return (
+                      <div className="mt-2 flex items-center justify-between bg-amber-50 rounded-lg px-3 py-1.5">
+                        <p className="text-[11px] text-amber-700 font-medium">
+                          Best: {peak.fullLabel}
+                        </p>
+                        <p className="text-[11px] font-bold text-amber-700">{formatCurrency(peak.profit)}</p>
+                      </div>
+                    );
+                  })()}
+                </>
+              )}
+            </div>
+
+            {/* ── Daily-wise profit summary ── */}
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Profit Entries — {currentMonthName}
+              Daily Profit — {currentMonthName}
             </p>
             {monthlyProfitLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-16 bg-card border rounded-xl animate-pulse" />
+                  <div key={i} className="h-14 bg-card border rounded-xl animate-pulse" />
                 ))}
               </div>
-            ) : (monthlyProfitReport?.entriesWithProfit?.filter((e) => e.profit != null).length ?? 0) === 0 ? (
+            ) : dailySummary.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Sparkles className="h-10 w-10 mx-auto mb-3 opacity-30" />
                 <p className="font-medium">No profit entries this month</p>
@@ -560,31 +654,25 @@ export default function Reports() {
               </div>
             ) : (
               <div className="space-y-2">
-                {(monthlyProfitReport?.entriesWithProfit ?? [])
-                  .filter((e) => e.profit != null)
-                  .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime())
-                  .map((entry) => (
-                    <div key={entry.id} className="bg-card border rounded-xl p-3 flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                        <Sparkles className="h-4 w-4 text-amber-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {entry.description || "Cash In"}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {format(new Date(entry.entryDate), "MMM d, yyyy · h:mm a")}
-                        </p>
-                        <p className="text-xs text-green-600 mt-0.5">
-                          Sale: {formatCurrency(entry.amount)}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-[10px] text-amber-500 font-semibold uppercase">Profit</p>
-                        <p className="text-base font-bold text-amber-700">{formatCurrency(entry.profit ?? 0)}</p>
-                      </div>
+                {dailySummary.map(({ key, dateObj, profit, entries }) => (
+                  <div key={key} className="bg-card border rounded-xl px-4 py-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        {format(dateObj, "EEEE")}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {format(dateObj, "MMMM d, yyyy")}
+                      </p>
+                      <p className="text-[11px] text-amber-600 mt-0.5">
+                        {entries} {entries === 1 ? "entry" : "entries"}
+                      </p>
                     </div>
-                  ))}
+                    <div className="text-right">
+                      <p className="text-[10px] text-amber-500 font-semibold uppercase">Profit</p>
+                      <p className="text-base font-bold text-amber-700">{formatCurrency(profit)}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </TabsContent>
