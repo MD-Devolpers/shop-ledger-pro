@@ -581,7 +581,8 @@ export default function Reports() {
                 </div>
               ) : (
                 <>
-                  <ResponsiveContainer width="100%" height={180}>
+                  <div style={{ width: "100%", height: 180 }}>
+                  <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                       <XAxis
@@ -618,6 +619,7 @@ export default function Reports() {
                       />
                     </BarChart>
                   </ResponsiveContainer>
+                  </div>
 
                   {/* Peak callout */}
                   {(() => {
