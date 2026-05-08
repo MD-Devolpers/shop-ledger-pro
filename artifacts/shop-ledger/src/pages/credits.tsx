@@ -515,17 +515,6 @@ function CustomerReportCard({
                                 {formatCurrency(credit.amount)}
                               </p>
                               <div className="flex gap-1">
-                                {isPending && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-green-600 hover:bg-green-50"
-                                    onClick={() => onMarkPaid(credit.id)}
-                                    title="Mark Settled"
-                                  >
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                )}
                                 <Button
                                   variant="ghost"
                                   size="icon"

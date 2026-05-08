@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike } from "drizzle-orm";
+import { eq, and, ilike, isNull, isNotNull } from "drizzle-orm";
 import { db, creditsTable } from "@workspace/db";
 import {
   CreateCreditBody,
@@ -23,6 +23,7 @@ function formatCredit(c: typeof creditsTable.$inferSelect) {
     type: c.type,
     status: c.status,
     dueDate: c.dueDate ? c.dueDate.toISOString() : null,
+    deletedAt: c.deletedAt ? c.deletedAt.toISOString() : null,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };
@@ -33,6 +34,13 @@ router.get("/credits", requireAuth, async (req, res): Promise<void> => {
   const qp = ListCreditsQueryParams.safeParse(req.query);
 
   const conditions = [eq(creditsTable.userId, userId)];
+
+  const deleted = req.query.deleted === "true";
+  if (deleted) {
+    conditions.push(isNotNull(creditsTable.deletedAt));
+  } else {
+    conditions.push(isNull(creditsTable.deletedAt));
+  }
 
   if (qp.success) {
     if (qp.data.customer_name) {
@@ -114,9 +122,50 @@ router.patch("/credits/:id", requireAuth, async (req, res): Promise<void> => {
   res.json(formatCredit(credit));
 });
 
+// Soft delete — moves to recycle bin
 router.delete("/credits/:id", requireAuth, async (req, res): Promise<void> => {
   const userId = req.session!.userId!;
-  const params = DeleteCreditParams.safeParse(req.params);
+  const params = UpdateCreditParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  await db
+    .update(creditsTable)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(creditsTable.id, params.data.id), eq(creditsTable.userId, userId)));
+
+  res.sendStatus(204);
+});
+
+// Restore a soft-deleted credit
+router.post("/credits/:id/restore", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.session!.userId!;
+  const params = UpdateCreditParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const [credit] = await db
+    .update(creditsTable)
+    .set({ deletedAt: null })
+    .where(and(eq(creditsTable.id, params.data.id), eq(creditsTable.userId, userId)))
+    .returning();
+
+  if (!credit) {
+    res.status(404).json({ error: "Credit not found" });
+    return;
+  }
+
+  res.json(formatCredit(credit));
+});
+
+// Permanently delete a credit
+router.delete("/credits/:id/permanent", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.session!.userId!;
+  const params = UpdateCreditParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid id" });
     return;

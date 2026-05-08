@@ -12,6 +12,7 @@ export const creditsTable = pgTable("credits", {
   type: text("type", { enum: ["given", "received"] }).notNull(),
   status: text("status", { enum: ["pending", "paid"] }).notNull().default("pending"),
   dueDate: timestamp("due_date", { withTimezone: true }),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -264,6 +264,7 @@ export const UpdateEntryProfitResponse = zod.object({
 export const ListCreditsQueryParams = zod.object({
   customer_name: zod.coerce.string().optional(),
   status: zod.enum(["pending", "paid"]).optional(),
+  deleted: zod.coerce.boolean().optional(),
 });
 
 export const ListCreditsResponseItem = zod.object({
@@ -276,6 +277,7 @@ export const ListCreditsResponseItem = zod.object({
   type: zod.enum(["given", "received"]),
   status: zod.enum(["pending", "paid"]),
   dueDate: zod.string().nullish(),
+  deletedAt: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
