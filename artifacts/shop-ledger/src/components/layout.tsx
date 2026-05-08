@@ -9,7 +9,7 @@ import {
   DatabaseBackup,
   Menu,
   LogOut,
-  BookOpen,
+  ScrollText,
   Trash2,
   Wallet,
   Banknote,
@@ -103,7 +103,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const LogoMark = () => (
     <div className="flex items-center gap-2">
       <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center shadow-sm">
-        <BookOpen className="h-4 w-4 text-primary-foreground" />
+        <ScrollText className="h-4 w-4 text-primary-foreground" />
       </div>
       <span className="font-bold text-base tracking-tight">LedgerEntries</span>
     </div>
@@ -192,7 +192,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex flex-col w-64 border-r bg-card sticky top-0 h-screen">
         <div className="p-6 flex items-center gap-3">
           <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center shadow-sm">
-            <BookOpen className="h-5 w-5 text-primary-foreground" />
+            <ScrollText className="h-5 w-5 text-primary-foreground" />
           </div>
           <span className="font-bold text-xl tracking-tight">LedgerEntries</span>
         </div>
