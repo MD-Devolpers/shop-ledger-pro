@@ -197,6 +197,7 @@ function CustomerReportCard({
   onDelete,
   onReceivePayment,
   onDeleteCustomer,
+  onCollectForCustomer,
 }: {
   customerName: string;
   credits: Credit[];
@@ -205,9 +206,13 @@ function CustomerReportCard({
   onDelete: (id: number) => void;
   onReceivePayment: (credit: Credit) => void;
   onDeleteCustomer: (credits: Credit[]) => void;
+  onCollectForCustomer: (customerName: string, amount: number, paymentMethod: "cash" | "digital") => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showCollect, setShowCollect] = useState(false);
+  const [collectAmount, setCollectAmount] = useState<number | "">("");
+  const [collectMethod, setCollectMethod] = useState<"cash" | "digital">("cash");
 
   // ── Calculations ─────────────────────────────────────────────────────────────
   // Baqi (Remaining) = pending credit given (amount reduced by partial payments)
@@ -238,15 +243,24 @@ function CustomerReportCard({
   const phone = credits.find((c) => c.phone)?.phone;
   const totalItems = credits.length + ledgerEntries.length;
 
+  const handleConfirmCollect = () => {
+    const amt = Number(collectAmount);
+    if (!amt || amt <= 0) return;
+    onCollectForCustomer(customerName, amt, collectMethod);
+    setShowCollect(false);
+    setCollectAmount("");
+    setCollectMethod("cash");
+  };
+
   return (
     <div className="border rounded-xl overflow-hidden bg-card shadow-sm">
       {/* ── Customer Header ─────────────────────────────────────────────────── */}
-      <button
-        className="w-full flex items-center justify-between px-4 py-3 gap-2 text-left hover:bg-accent/40 transition-colors"
-        onClick={() => setExpanded((e) => !e)}
-      >
-        {/* Left: avatar + name + phone */}
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+      <div className="w-full flex items-center justify-between px-4 py-3 gap-2">
+        {/* Left: clickable area to expand */}
+        <button
+          className="flex items-center gap-3 min-w-0 flex-1 text-left"
+          onClick={() => setExpanded((e) => !e)}
+        >
           <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-base ${
             baqi > 0 ? "bg-red-100 text-red-700" : youOwe > 0 ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
           }`}>
@@ -265,28 +279,127 @@ function CustomerReportCard({
               </p>
             )}
           </div>
-        </div>
+        </button>
 
-        {/* Right: Baqi amount (big) + chevron */}
+        {/* Right: Collect button + balance + chevron */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="text-right">
-            {baqi > 0 ? (
-              <>
-                <p className="text-[10px] text-red-500 font-semibold uppercase">Remaining</p>
-                <p className="text-lg font-bold text-red-600 leading-tight">{formatCurrency(baqi)}</p>
-              </>
-            ) : youOwe > 0 ? (
-              <>
-                <p className="text-[10px] text-blue-500 font-semibold uppercase">You Owe</p>
-                <p className="text-lg font-bold text-blue-600 leading-tight">{formatCurrency(youOwe)}</p>
-              </>
-            ) : (
-              <p className="text-sm font-bold text-green-600">Cleared ✓</p>
-            )}
-          </div>
-          {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          {baqi > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs border-green-300 text-green-700 hover:bg-green-50 gap-1 px-2"
+              onClick={() => {
+                setCollectAmount(baqi);
+                setShowCollect((v) => !v);
+              }}
+            >
+              <ArrowDownCircle className="h-3.5 w-3.5" />
+              Collect
+            </Button>
+          )}
+          <button
+            className="flex items-center gap-2 text-right"
+            onClick={() => setExpanded((e) => !e)}
+          >
+            <div className="text-right">
+              {baqi > 0 ? (
+                <>
+                  <p className="text-[10px] text-red-500 font-semibold uppercase">Remaining</p>
+                  <p className="text-lg font-bold text-red-600 leading-tight">{formatCurrency(baqi)}</p>
+                </>
+              ) : youOwe > 0 ? (
+                <>
+                  <p className="text-[10px] text-blue-500 font-semibold uppercase">You Owe</p>
+                  <p className="text-lg font-bold text-blue-600 leading-tight">{formatCurrency(youOwe)}</p>
+                </>
+              ) : (
+                <p className="text-sm font-bold text-green-600">Cleared ✓</p>
+              )}
+            </div>
+            {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          </button>
         </div>
-      </button>
+      </div>
+
+      {/* ── Inline Collect Form ───────────────────────────────────────────────── */}
+      {showCollect && baqi > 0 && (
+        <div className="border-t bg-green-50 px-4 py-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-green-800">Collect Payment</p>
+            <p className="text-xs text-green-700">Balance: <strong>{formatCurrency(baqi)}</strong></p>
+          </div>
+          {/* Quick amount buttons */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              className="h-9 text-xs border border-green-200 rounded-lg bg-white hover:bg-green-50 font-medium"
+              onClick={() => setCollectAmount(Math.round(baqi / 2))}
+            >
+              Half — {formatCurrency(Math.round(baqi / 2))}
+            </button>
+            <button
+              type="button"
+              className="h-9 text-xs border border-green-300 rounded-lg bg-white hover:bg-green-50 font-medium text-green-700"
+              onClick={() => setCollectAmount(baqi)}
+            >
+              Full — {formatCurrency(baqi)}
+            </button>
+          </div>
+          {/* Amount input */}
+          <Input
+            type="number"
+            placeholder="Enter amount received..."
+            value={collectAmount}
+            onChange={(e) => setCollectAmount(e.target.value === "" ? "" : Number(e.target.value))}
+            className="h-10 text-base font-bold bg-white"
+          />
+          {/* Partial payment indicator */}
+          {Number(collectAmount) > 0 && Number(collectAmount) < baqi && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+              Partial — Remaining after: <strong>{formatCurrency(baqi - Number(collectAmount))}</strong>
+            </p>
+          )}
+          {/* Payment method */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              className={`flex items-center gap-2 justify-center border rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                collectMethod === "cash" ? "bg-primary text-primary-foreground border-primary" : "bg-white hover:bg-accent"
+              }`}
+              onClick={() => setCollectMethod("cash")}
+            >
+              <Banknote className="h-4 w-4" /> Cash
+            </button>
+            <button
+              type="button"
+              className={`flex items-center gap-2 justify-center border rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                collectMethod === "digital" ? "bg-blue-600 text-white border-blue-600" : "bg-white hover:bg-accent"
+              }`}
+              onClick={() => setCollectMethod("digital")}
+            >
+              <Smartphone className="h-4 w-4" /> Digital
+            </button>
+          </div>
+          {/* Confirm / Cancel */}
+          <div className="flex gap-2">
+            <Button
+              className="flex-1 bg-green-600 hover:bg-green-700 h-10"
+              onClick={handleConfirmCollect}
+              disabled={!collectAmount || Number(collectAmount) <= 0}
+            >
+              <CheckCircle2 className="h-4 w-4 mr-1" />
+              Confirm {collectAmount ? formatCurrency(Number(collectAmount)) : ""}
+            </Button>
+            <Button
+              variant="ghost"
+              className="h-10 px-3"
+              onClick={() => { setShowCollect(false); setCollectAmount(""); }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ── Expanded Detail ──────────────────────────────────────────────────── */}
       {expanded && (
@@ -757,6 +870,78 @@ export default function Credits() {
     });
   };
 
+  const handleCollectForCustomer = (
+    name: string,
+    amount: number,
+    paymentMethod: "cash" | "digital"
+  ) => {
+    createEntry.mutate(
+      {
+        data: {
+          type: "cash_in",
+          amount,
+          description: `Payment received from ${name}`,
+          paymentMethod,
+          isCredit: false,
+          customerName: name,
+        },
+      },
+      {
+        onSuccess: () => {
+          const pending = (credits ?? [])
+            .filter(
+              (c) =>
+                c.customerName.trim().toLowerCase() === name.trim().toLowerCase() &&
+                c.type === "given" &&
+                c.status === "pending"
+            )
+            .sort(
+              (a, b) =>
+                new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+            );
+
+          let left = amount;
+          const applyNext = (i: number) => {
+            if (i >= pending.length || left <= 0) {
+              invalidateAll();
+              toast({
+                title: "Payment collected!",
+                description: `${formatCurrency(amount)} received from ${name}.`,
+              });
+              return;
+            }
+            const credit = pending[i];
+            if (left >= credit.amount) {
+              left -= credit.amount;
+              updateCredit.mutate(
+                { id: credit.id, data: { status: "paid" } },
+                { onSuccess: () => applyNext(i + 1) }
+              );
+            } else {
+              updateCredit.mutate(
+                { id: credit.id, data: { amount: credit.amount - left } },
+                {
+                  onSuccess: () => {
+                    left = 0;
+                    applyNext(i + 1);
+                  },
+                }
+              );
+            }
+          };
+          applyNext(0);
+        },
+        onError: (error) => {
+          toast({
+            title: "Error",
+            description: error.error || "Failed to record payment.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
   const totalGiven =
     credits
       ?.filter((c) => c.type === "given" && c.status === "pending")
@@ -963,6 +1148,7 @@ export default function Credits() {
                     onDelete={handleDelete}
                     onReceivePayment={openReceivePayment}
                     onDeleteCustomer={handleDeleteCustomer}
+                    onCollectForCustomer={handleCollectForCustomer}
                   />
                 ))}
               </div>
