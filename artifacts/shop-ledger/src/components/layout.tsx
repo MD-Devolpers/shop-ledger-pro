@@ -143,7 +143,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             {/* Balance summary in drawer */}
             {summary && (
               <div className="px-4 py-3 border-b bg-muted/30">
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div className="text-center">
                     <p className="text-[10px] text-muted-foreground">Cash</p>
                     <p className="text-xs font-bold text-green-700">{formatCurrencyShort(summary.cashBalance)}</p>
@@ -151,10 +151,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <div className="text-center">
                     <p className="text-[10px] text-muted-foreground">Digital</p>
                     <p className="text-xs font-bold text-blue-700">{formatCurrencyShort(summary.digitalBalance)}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground">Wallet</p>
-                    <p className="text-xs font-bold text-violet-700">{formatCurrencyShort((summary as any).personalWallet ?? 0)}</p>
                   </div>
                 </div>
               </div>
@@ -200,7 +196,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* Sidebar balance summary */}
         {summary && (
           <div className="mx-4 mb-2 bg-muted/50 rounded-xl p-3 border">
-            <div className="grid grid-cols-3 gap-1 text-center">
+            <div className="grid grid-cols-2 gap-1 text-center">
               <div>
                 <div className="flex items-center justify-center gap-1 text-green-700 mb-0.5">
                   <Banknote className="h-3 w-3" />
@@ -214,13 +210,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <span className="text-[10px] font-medium">Digital</span>
                 </div>
                 <p className="text-xs font-bold text-blue-700">{formatCurrencyShort(summary.digitalBalance)}</p>
-              </div>
-              <div>
-                <div className="flex items-center justify-center gap-1 text-violet-700 mb-0.5">
-                  <Wallet className="h-3 w-3" />
-                  <span className="text-[10px] font-medium">Wallet</span>
-                </div>
-                <p className="text-xs font-bold text-violet-700">{formatCurrencyShort((summary as any).personalWallet ?? 0)}</p>
               </div>
             </div>
           </div>

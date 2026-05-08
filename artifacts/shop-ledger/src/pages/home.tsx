@@ -7,6 +7,7 @@ import {
   useListEntries,
   useDeleteEntry,
   useListCustomers,
+  useGetProfitReport,
   getGetReportSummaryQueryKey,
   getListEntriesQueryKey,
 } from "@workspace/api-client-react";
@@ -58,6 +59,7 @@ export default function Home() {
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   const { data: summary, isLoading: summaryLoading } = useGetReportSummary();
+  const { data: monthlyProfit } = useGetProfitReport({ period: "monthly" });
   const { data: todayEntries, isLoading: entriesLoading } = useListEntries({
     date: new Date().toISOString().split("T")[0],
   });
@@ -269,9 +271,9 @@ export default function Home() {
           </p>
         </div>
         <div className="bg-card border rounded-xl p-3 text-center">
-          <p className="text-xs text-muted-foreground">Total Profit</p>
+          <p className="text-xs text-muted-foreground">Month Profit</p>
           <p className="text-lg font-bold text-green-600" data-testid="total-profit">
-            {formatCurrency(summary?.totalProfit ?? 0)}
+            {formatCurrency(monthlyProfit?.totalProfit ?? 0)}
           </p>
         </div>
         <div className="bg-card border rounded-xl p-3 text-center">
