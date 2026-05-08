@@ -206,7 +206,7 @@ function CustomerReportCard({
   onReceivePayment: (credit: Credit) => void;
   onDeleteCustomer: (credits: Credit[]) => void;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // ── Calculations ─────────────────────────────────────────────────────────────
@@ -402,17 +402,6 @@ function CustomerReportCard({
                                 {formatCurrency(credit.amount)}
                               </p>
                               <div className="flex gap-1">
-                                {isPending && isGiven && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-[11px] border-green-300 text-green-700 hover:bg-green-50 gap-1 px-2"
-                                    onClick={() => onReceivePayment(credit)}
-                                  >
-                                    <ArrowDownCircle className="h-3 w-3" />
-                                    Collect
-                                  </Button>
-                                )}
                                 {isPending && (
                                   <Button
                                     variant="ghost"
