@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "dexie": "^4.4.2",
     "html2canvas": "^1.4.1"
   }
 }

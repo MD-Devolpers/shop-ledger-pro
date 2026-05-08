@@ -17,6 +17,7 @@ import {
   FileBarChart2,
 } from "lucide-react";
 import { useGetMe, useLogout, useGetReportSummary } from "@workspace/api-client-react";
+import { SyncStatus, OfflineBanner } from "@/components/sync-status";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -125,10 +126,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] flex flex-col md:flex-row bg-background">
       {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between p-3 border-b bg-card sticky top-0 z-10">
-        <LogoMark />
-        <BalanceChips />
-        <Sheet>
+      <header className="md:hidden flex flex-col border-b bg-card sticky top-0 z-10">
+        <div className="flex items-center justify-between p-3">
+          <LogoMark />
+          <div className="flex items-center gap-2">
+            <SyncStatus />
+            <BalanceChips />
+          </div>
+          <Sheet>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" data-testid="button-mobile-menu">
               <Menu className="h-6 w-6" />
@@ -181,7 +186,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </div>
             )}
           </SheetContent>
-        </Sheet>
+          </Sheet>
+        </div>
+        <OfflineBanner />
       </header>
 
       {/* Desktop Sidebar */}
