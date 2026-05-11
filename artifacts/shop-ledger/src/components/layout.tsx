@@ -1,13 +1,12 @@
 import { Link, useLocation } from "wouter";
-import { 
-  Home, 
-  ListOrdered, 
-  Users, 
-  TrendingUp, 
-  BarChart3, 
+import {
+  Home,
+  ListOrdered,
+  Users,
+  TrendingUp,
+  BarChart3,
   Settings,
   DatabaseBackup,
-  Menu,
   LogOut,
   ScrollText,
   Trash2,
@@ -15,21 +14,33 @@ import {
   Banknote,
   Smartphone,
   FileBarChart2,
+  MoreHorizontal,
+  X,
 } from "lucide-react";
 import { useGetMe, useLogout, useGetReportSummary } from "@workspace/api-client-react";
 import { SyncStatus, OfflineBanner } from "@/components/sync-status";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
-const navItems = [
+const bottomNavItems = [
+  { icon: Home, label: "Home", href: "/app" },
+  { icon: ListOrdered, label: "Entries", href: "/entries" },
+  { icon: Users, label: "Credits", href: "/credits" },
+  { icon: BarChart3, label: "Reports", href: "/reports" },
+];
+
+const moreItems = [
+  { icon: TrendingUp, label: "Profits", href: "/profits" },
+  { icon: Wallet, label: "Closing", href: "/closing" },
+  { icon: FileBarChart2, label: "Digital Report", href: "/digital-report" },
+  { icon: Trash2, label: "Recycle Bin", href: "/recycle-bin" },
+  { icon: DatabaseBackup, label: "Backup", href: "/backup" },
+  { icon: Settings, label: "Settings", href: "/settings" },
+];
+
+const sidebarNavItems = [
   { icon: Home, label: "Home", href: "/app" },
   { icon: ListOrdered, label: "Entries", href: "/entries" },
   { icon: Users, label: "Credits", href: "/credits" },
@@ -63,6 +74,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const logout = useLogout();
   const { toast } = useToast();
   const { data: summary } = useGetReportSummary();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const handleLogout = () => {
     logout.mutate(undefined, {
@@ -73,14 +85,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
           description: error.error || "An unexpected error occurred",
           variant: "destructive",
         });
-      }
+      },
     });
   };
 
   const isActive = (href: string) =>
     location === href || (href.length > 4 && location.startsWith(href));
 
-  const NavLinks = ({ items, onClick }: { items: typeof navItems; onClick?: () => void }) => (
+  const isMoreActive = moreItems.some((item) => isActive(item.href));
+
+  const SidebarNavLinks = ({
+    items,
+    onClick,
+  }: {
+    items: typeof sidebarNavItems;
+    onClick?: () => void;
+  }) => (
     <div className="flex flex-col space-y-1">
       {items.map((item) => {
         const active = isActive(item.href);
@@ -125,73 +145,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-[100dvh] flex flex-col md:flex-row bg-background">
-      {/* Mobile Header */}
+      {/* ── Mobile Header ── */}
       <header className="md:hidden flex flex-col border-b bg-card sticky top-0 z-10">
-        <div className="flex items-center justify-between p-3">
+        <div className="flex items-center justify-between px-4 py-3">
           <LogoMark />
           <div className="flex items-center gap-2">
             <SyncStatus />
             <BalanceChips />
           </div>
-          <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" data-testid="button-mobile-menu">
-              <Menu className="h-6 w-6" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
-            <SheetHeader className="p-4 border-b text-left">
-              <SheetTitle>
-                <LogoMark />
-              </SheetTitle>
-            </SheetHeader>
-            {/* Balance summary in drawer */}
-            {summary && (
-              <div className="px-4 py-3 border-b bg-muted/30">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground">Cash</p>
-                    <p className="text-xs font-bold text-green-700">{formatCurrencyShort(summary.cashBalance)}</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-[10px] text-muted-foreground">Digital</p>
-                    <p className="text-xs font-bold text-blue-700">{formatCurrencyShort(summary.digitalBalance)}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div className="flex-1 overflow-y-auto py-4 px-3 flex flex-col gap-6">
-              <NavLinks items={navItems} />
-              <div className="h-px bg-border my-2" />
-              <NavLinks items={secondaryNavItems} />
-            </div>
-            {user && (
-              <div className="p-4 border-t bg-muted/30 flex items-center justify-between">
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {user.username.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col overflow-hidden">
-                    <span className="text-sm font-medium truncate">{user.username}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {(user as any)?.role === "admin" ? "Admin" : "Shop Owner"}
-                    </span>
-                  </div>
-                </div>
-                <Button variant="ghost" size="icon" onClick={handleLogout} data-testid="button-logout">
-                  <LogOut className="h-5 w-5 text-muted-foreground" />
-                </Button>
-              </div>
-            )}
-          </SheetContent>
-          </Sheet>
         </div>
         <OfflineBanner />
       </header>
 
-      {/* Desktop Sidebar */}
+      {/* ── Desktop Sidebar ── */}
       <aside className="hidden md:flex flex-col w-64 border-r bg-card sticky top-0 h-screen">
         <div className="p-6 flex items-center gap-3">
           <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center shadow-sm">
@@ -200,7 +166,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <span className="font-bold text-xl tracking-tight">LedgerEntries</span>
         </div>
 
-        {/* Sidebar balance summary */}
         {summary && (
           <div className="mx-4 mb-2 bg-muted/50 rounded-xl p-3 border">
             <div className="grid grid-cols-2 gap-1 text-center">
@@ -223,10 +188,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
 
         <div className="flex-1 overflow-y-auto py-4 px-4 flex flex-col gap-6">
-          <NavLinks items={navItems} />
+          <SidebarNavLinks items={sidebarNavItems} />
           <div className="h-px bg-border my-2" />
-          <NavLinks items={secondaryNavItems} />
+          <SidebarNavLinks items={secondaryNavItems} />
         </div>
+
         {user && (
           <div className="p-4 border-t bg-muted/20 flex items-center justify-between">
             <div className="flex items-center gap-3 overflow-hidden">
@@ -249,19 +215,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </aside>
 
-      {/* Main Content */}
+      {/* ── Main Content ── */}
       <main className="flex-1 flex flex-col min-w-0 bg-background md:bg-muted/10">
         {children}
       </main>
 
-      {/* Mobile Bottom Nav */}
-      <nav className="md:hidden sticky bottom-0 z-10 border-t bg-card flex items-center justify-around p-2 pb-safe">
-        {navItems.slice(0, 5).map((item) => {
+      {/* ── Mobile Bottom Nav ── */}
+      <nav className="md:hidden sticky bottom-0 z-20 border-t bg-card flex items-center justify-around px-2 pt-2 pb-safe">
+        {bottomNavItems.map((item) => {
           const active = isActive(item.href);
           return (
             <Link key={item.href} href={item.href}>
               <div
-                className={`flex flex-col items-center justify-center p-1.5 min-w-[52px] ${active ? "text-primary" : "text-muted-foreground"}`}
+                className={`flex flex-col items-center justify-center p-1.5 min-w-[56px] ${active ? "text-primary" : "text-muted-foreground"}`}
                 data-testid={`bottom-nav-${item.label.toLowerCase()}`}
               >
                 <div className={`mb-0.5 p-1 rounded-full ${active ? "bg-primary/10" : ""}`}>
@@ -272,7 +238,97 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
           );
         })}
+
+        {/* More tab */}
+        <button
+          onClick={() => setMoreOpen(true)}
+          className={`flex flex-col items-center justify-center p-1.5 min-w-[56px] ${isMoreActive ? "text-primary" : "text-muted-foreground"}`}
+          data-testid="bottom-nav-more"
+        >
+          <div className={`mb-0.5 p-1 rounded-full ${isMoreActive ? "bg-primary/10" : ""}`}>
+            <MoreHorizontal className="h-5 w-5" strokeWidth={isMoreActive ? 2.5 : 2} />
+          </div>
+          <span className="text-[9px] font-medium">More</span>
+        </button>
       </nav>
+
+      {/* ── Mobile More Bottom Sheet ── */}
+      {moreOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="md:hidden fixed inset-0 z-30 bg-black/40"
+            onClick={() => setMoreOpen(false)}
+          />
+          {/* Sheet */}
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card rounded-t-2xl shadow-2xl border-t">
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+
+            {/* User info */}
+            {user && (
+              <div className="px-4 pt-2 pb-3 flex items-center justify-between border-b">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-9 w-9">
+                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                      {user.username.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-semibold">{user.username}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(user as any)?.role === "admin" ? "Admin" : "Shop Owner"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setMoreOpen(false)}
+                  className="h-8 w-8 rounded-full bg-muted flex items-center justify-center"
+                >
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+            )}
+
+            {/* Nav items grid */}
+            <div className="grid grid-cols-3 gap-1 p-4">
+              {moreItems.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link key={item.href} href={item.href}>
+                    <div
+                      onClick={() => setMoreOpen(false)}
+                      className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl transition-colors ${
+                        active
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted/50 text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      <item.icon className="h-5 w-5" strokeWidth={active ? 2.5 : 2} />
+                      <span className="text-[10px] font-medium text-center leading-tight">
+                        {item.label}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Logout */}
+            <div className="px-4 pb-6">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-50 text-red-600 text-sm font-medium"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
