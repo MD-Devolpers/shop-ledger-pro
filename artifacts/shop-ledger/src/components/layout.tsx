@@ -216,12 +216,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Main Content ── */}
-      <main className="flex-1 flex flex-col min-w-0 bg-background md:bg-muted/10">
+      <main className="flex-1 flex flex-col min-w-0 bg-background md:bg-muted/10 pb-[64px] md:pb-0">
         {children}
       </main>
 
       {/* ── Mobile Bottom Nav ── */}
-      <nav className="md:hidden sticky bottom-0 z-20 border-t bg-card flex items-center justify-around px-2 pt-2 pb-safe">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-20 border-t bg-card flex items-center justify-around px-2 pt-2 pb-safe">
         {bottomNavItems.map((item) => {
           const active = isActive(item.href);
           return (
