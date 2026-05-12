@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lte, isNull, sum, count, sql } from "drizzle-orm";
+import { eq, and, gte, lte, isNull, sum, count, sql, desc } from "drizzle-orm";
 import { db, entriesTable, creditsTable, closingsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 
@@ -193,7 +193,7 @@ router.get("/reports/entries", requireAuth, async (req, res): Promise<void> => {
         lte(entriesTable.entryDate, end)
       )
     )
-    .orderBy(entriesTable.entryDate);
+    .orderBy(desc(entriesTable.entryDate));
 
   let cashIn = 0;
   let cashOut = 0;
@@ -256,7 +256,7 @@ router.get("/reports/profit", requireAuth, async (req, res): Promise<void> => {
         lte(entriesTable.entryDate, end)
       )
     )
-    .orderBy(entriesTable.entryDate);
+    .orderBy(desc(entriesTable.entryDate));
 
   let totalProfit = 0;
   const entriesWithProfit = entries.filter((e) => e.profit != null);
