@@ -318,7 +318,9 @@ export default function Reports() {
                           <p className="font-medium">No entries for this period</p>
                         </div>
                       ) : (
-                        report.entries.map((entry) => (
+                        [...report.entries]
+                          .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime())
+                          .map((entry) => (
                           <div key={entry.id} className="bg-card border rounded-xl p-3 flex items-center gap-3" data-testid={`report-entry-${entry.id}`}>
                             <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${entry.type === "cash_in" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
                               {entry.type === "cash_in" ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
@@ -444,7 +446,9 @@ export default function Reports() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {(dateEntries ?? []).map((entry) => (
+                    {[...(dateEntries ?? [])]
+                      .sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime())
+                      .map((entry) => (
                       <div key={entry.id} className="bg-card border rounded-xl p-3 flex items-center gap-3">
                         <div className={`h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0 ${entry.type === "cash_in" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
                           {entry.type === "cash_in" ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
