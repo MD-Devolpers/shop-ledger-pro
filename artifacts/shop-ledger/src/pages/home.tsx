@@ -58,6 +58,7 @@ export default function Home() {
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [isFundOperationMode, setIsFundOperationMode] = useState(false);
+  const isFundOperationRef = useRef(false);
 
   const { data: summary, isLoading: summaryLoading } = useGetReportSummary();
   const { data: monthlyProfit } = useGetProfitReport({ period: "monthly" });
@@ -107,6 +108,7 @@ export default function Home() {
 
   const openDialog = (type: "cash_in" | "cash_out", method: "cash" | "digital" = "cash") => {
     setEntryType(type);
+    isFundOperationRef.current = method === "digital";
     setIsFundOperationMode(method === "digital");
     form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: method, isCredit: false, customerName: "", contactNumber: "" });
     setCustomerSearch("");
@@ -115,6 +117,7 @@ export default function Home() {
   };
 
   const onSubmit = (data: z.infer<typeof entrySchema>) => {
+    const isFund = isFundOperationRef.current;
     createEntry.mutate(
       {
         data: {
@@ -124,9 +127,9 @@ export default function Home() {
           profit: data.profit != null && data.profit > 0 ? data.profit : null,
           paymentMethod: data.paymentMethod,
           isCredit: data.isCredit,
-          isFundOperation: isFundTransfer,
-          customerName: (data.isCredit || isFundTransfer) ? (data.customerName || null) : null,
-          contactNumber: isFundTransfer ? (data.contactNumber || null) : null,
+          isFundOperation: isFund,
+          customerName: (data.isCredit || isFund) ? (data.customerName || null) : null,
+          contactNumber: isFund ? (data.contactNumber || null) : null,
         },
       },
       {
@@ -134,11 +137,11 @@ export default function Home() {
           queryClient.invalidateQueries({ queryKey: getGetReportSummaryQueryKey() });
           queryClient.invalidateQueries({ queryKey: getListEntriesQueryKey() });
           setDialogOpen(false);
-          const label = isFundTransfer
+          const label = isFund
             ? (entryType === "cash_in" ? "Fund Receive" : "Fund Transfer")
             : (entryType === "cash_in" ? "Cash In" : "Cash Out");
 
-          if (isFundTransfer) {
+          if (isFund) {
             setReceiptData({
               storeName: (me as any)?.storeName || (me as any)?.username || "My Store",
               transactionType: entryType === "cash_out" ? "Fund Transfer" : "Fund Receive",
