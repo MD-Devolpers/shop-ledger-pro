@@ -86,24 +86,32 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
 
     if (entry.paymentMethod === "cash") {
       if (entry.type === "cash_in") {
-        cashBalance += amount;   // Cash received → cash balance up
+        cashBalance += amount;
         totalCashIn += amount;
       } else {
-        cashBalance -= amount;   // Cash paid → cash balance down
+        cashBalance -= amount;
         totalCashOut += amount;
       }
     } else {
-      // Digital:
-      // Fund Receive (cash_in+digital): I give cash → cashBalance↓, receive digital → digitalBalance↑
-      // Fund Transfer (cash_out+digital): digital account deducted → digitalBalance↓, cash received → cashBalance↑
+      // Digital payment:
+      // Only Fund Receive / Fund Transfer do a cash↔digital swap.
+      // Regular Cash In / Cash Out with digital just moves digital balance.
       if (entry.type === "cash_in") {
-        digitalBalance += amount;  // Fund Receive: received digital
-        cashBalance -= amount;     // Fund Receive: gave cash
         totalCashIn += amount;
+        if (entry.isFundOperation) {
+          digitalBalance += amount;  // Fund Receive → digital+, cash-
+          cashBalance -= amount;
+        } else {
+          digitalBalance += amount;  // Digital sale → digital+ only
+        }
       } else {
-        digitalBalance -= amount;  // Fund Transfer: digital deducted
-        cashBalance += amount;     // Fund Transfer: cash added
         totalCashOut += amount;
+        if (entry.isFundOperation) {
+          digitalBalance -= amount;  // Fund Transfer → digital-, cash+
+          cashBalance += amount;
+        } else {
+          digitalBalance -= amount;  // Digital expense → digital- only
+        }
       }
     }
   }
