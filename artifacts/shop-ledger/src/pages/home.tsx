@@ -57,6 +57,7 @@ export default function Home() {
   const customerInputRef = useRef<HTMLInputElement>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [isFundOperationMode, setIsFundOperationMode] = useState(false);
 
   const { data: summary, isLoading: summaryLoading } = useGetReportSummary();
   const { data: monthlyProfit } = useGetProfitReport({ period: "monthly" });
@@ -90,7 +91,7 @@ export default function Home() {
 
   const isCredit = form.watch("isCredit");
   const watchedPaymentMethod = form.watch("paymentMethod");
-  const isFundTransfer = watchedPaymentMethod === "digital";
+  const isFundTransfer = isFundOperationMode;
 
   // Auto-focus customer name input and show saved customers when credit is toggled on
   useEffect(() => {
@@ -106,6 +107,7 @@ export default function Home() {
 
   const openDialog = (type: "cash_in" | "cash_out", method: "cash" | "digital" = "cash") => {
     setEntryType(type);
+    setIsFundOperationMode(method === "digital");
     form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: method, isCredit: false, customerName: "", contactNumber: "" });
     setCustomerSearch("");
     setShowCustomerDropdown(false);
