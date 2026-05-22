@@ -19,6 +19,7 @@ export interface Entry {
   /** @nullable */
   profit?: number | null;
   isCredit: boolean;
+  isFundOperation: boolean;
   /** @nullable */
   customerName?: string | null;
   /** @nullable */

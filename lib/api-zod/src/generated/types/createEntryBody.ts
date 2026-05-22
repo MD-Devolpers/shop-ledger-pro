@@ -15,6 +15,7 @@ export interface CreateEntryBody {
   description?: string | null;
   paymentMethod: CreateEntryBodyPaymentMethod;
   isCredit?: boolean;
+  isFundOperation?: boolean;
   /** @nullable */
   customerName?: string | null;
   /** @nullable */

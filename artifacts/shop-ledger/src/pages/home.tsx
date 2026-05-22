@@ -122,6 +122,7 @@ export default function Home() {
           profit: data.profit != null && data.profit > 0 ? data.profit : null,
           paymentMethod: data.paymentMethod,
           isCredit: data.isCredit,
+          isFundOperation: isFundTransfer,
           customerName: (data.isCredit || isFundTransfer) ? (data.customerName || null) : null,
           contactNumber: isFundTransfer ? (data.contactNumber || null) : null,
         },

@@ -202,21 +202,26 @@ router.get("/reports/entries", requireAuth, async (req, res): Promise<void> => {
 
   for (const entry of entries) {
     const amount = parseFloat(entry.amount);
+    const isFund = entry.isFundOperation;
     if (entry.type === "cash_in") {
       cashIn += amount;
       if (entry.paymentMethod === "cash") {
-        cashBalance += amount;     // Cash In → cash up
-      } else {
-        digitalBalance += amount;  // Fund Receive → digital up, cash down
+        cashBalance += amount;           // Cash In (cash) → cash+
+      } else if (isFund) {
+        digitalBalance += amount;        // Fund Receive → digital+, cash-
         cashBalance -= amount;
+      } else {
+        digitalBalance += amount;        // Cash In (digital sale) → digital+ only
       }
     } else {
       cashOut += amount;
       if (entry.paymentMethod === "cash") {
-        cashBalance -= amount;     // Cash Out → cash down
-      } else {
-        digitalBalance -= amount;  // Fund Transfer → digital down, cash up
+        cashBalance -= amount;           // Cash Out (cash) → cash-
+      } else if (isFund) {
+        digitalBalance -= amount;        // Fund Transfer → digital-, cash+
         cashBalance += amount;
+      } else {
+        digitalBalance -= amount;        // Cash Out (digital expense) → digital- only
       }
     }
   }

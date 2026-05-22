@@ -11,6 +11,7 @@ export const entriesTable = pgTable("entries", {
   paymentMethod: text("payment_method", { enum: ["cash", "digital"] }).notNull().default("cash"),
   profit: numeric("profit", { precision: 12, scale: 2 }),
   isCredit: boolean("is_credit").notNull().default(false),
+  isFundOperation: boolean("is_fund_operation").notNull().default(false),
   customerName: text("customer_name"),
   contactNumber: text("contact_number"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),

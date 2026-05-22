@@ -124,6 +124,7 @@ export const CreateEntryBody = zod.object({
   paymentMethod: zod.enum(["cash", "digital"]),
   profit: zod.number().nullish(),
   isCredit: zod.boolean().optional(),
+  isFundOperation: zod.boolean().optional(),
   customerName: zod.string().nullish(),
   contactNumber: zod.string().nullish(),
   entryDate: zod.string().nullish(),

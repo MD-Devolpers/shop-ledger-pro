@@ -26,6 +26,7 @@ function formatEntry(e: typeof entriesTable.$inferSelect) {
     paymentMethod: e.paymentMethod,
     profit: e.profit != null ? parseFloat(e.profit) : null,
     isCredit: e.isCredit,
+    isFundOperation: e.isFundOperation,
     customerName: e.customerName,
     contactNumber: e.contactNumber ?? null,
     deletedAt: e.deletedAt ? e.deletedAt.toISOString() : null,
@@ -92,7 +93,7 @@ router.post("/entries", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const { type, amount, description, paymentMethod, profit, isCredit, customerName, contactNumber, entryDate } = parsed.data;
+  const { type, amount, description, paymentMethod, profit, isCredit, isFundOperation, customerName, contactNumber, entryDate } = parsed.data;
 
   const [entry] = await db
     .insert(entriesTable)
@@ -104,6 +105,7 @@ router.post("/entries", requireAuth, async (req, res): Promise<void> => {
       paymentMethod: paymentMethod ?? "cash",
       profit: profit != null ? profit.toString() : null,
       isCredit: isCredit ?? false,
+      isFundOperation: isFundOperation ?? false,
       customerName: customerName ?? null,
       contactNumber: contactNumber ?? null,
       entryDate: entryDate ? new Date(entryDate) : new Date(),
