@@ -356,7 +356,7 @@ export default function Home() {
                     {formatCurrency(entry.amount)}
                   </p>
                   <div className="flex gap-1">
-                    {entry.paymentMethod === "digital" && !entry.isCredit && (
+                    {(entry as any).isFundOperation && !entry.isCredit && (
                       <Button
                         variant="outline"
                         size="sm"

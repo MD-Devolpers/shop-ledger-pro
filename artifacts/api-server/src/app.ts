@@ -118,7 +118,9 @@ app.use("/api", router);
 
 // ── Serve frontend static files in production ──────────────────────────────
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const publicDir = path.resolve(__dirname, "public");
+// Vite builds shop-ledger to artifacts/shop-ledger/dist/public
+// At runtime, __dirname = artifacts/api-server/dist/ so we go up two levels
+const publicDir = path.resolve(__dirname, "../../shop-ledger/dist/public");
 
 if (process.env.NODE_ENV === "production") {
   const indexHtml = path.resolve(publicDir, "index.html");
