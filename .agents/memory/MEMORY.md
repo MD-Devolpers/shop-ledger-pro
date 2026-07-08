@@ -1,0 +1,1 @@
+- [Hostinger/pnpm monorepo deploy](hostinger-pnpm-deploy.md) — pinned `packageManager` field breaks builds on hosts with a different pinned pnpm/corepack version.
