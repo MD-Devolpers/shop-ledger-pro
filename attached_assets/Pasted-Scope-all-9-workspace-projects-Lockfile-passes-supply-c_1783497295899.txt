@@ -1,0 +1,37 @@
+Scope: all 9 workspace projects
+✓ Lockfile passes supply-chain policies (verified 17m ago)
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +753
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 753, reused 753, downloaded 0, added 358
+Progress: resolved 753, reused 753, downloaded 0, added 604
+Progress: resolved 753, reused 753, downloaded 0, added 750
+Progress: resolved 753, reused 753, downloaded 0, added 753, done
+.../esbuild@0.27.3/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.27.3/node_modules/esbuild postinstall: node:internal/child_process:1120
+.../esbuild@0.27.3/node_modules/esbuild postinstall:     result.error = new ErrnoException(result.error, 'spawnSync ' + options.file);
+.../esbuild@0.27.3/node_modules/esbuild postinstall:                    ^
+.../esbuild@0.27.3/node_modules/esbuild postinstall: <ref *1> Error: spawnSync /home/u412659001/domains/shop-ledger-pro.com/public_html/.builds/source/repository/node_modules/.pnpm/esbuild@0.27.3/node_modules/esbuild/bin/esbuild EACCES
+.../esbuild@0.27.3/node_modules/esbuild postinstall:     at Object.spawnSync (node:internal/child_process:1120:20)
+.../esbuild@0.27.3/node_modules/esbuild postinstall:     at spawnSync (node:child_process:901:24)
+.../esbuild@0.27.3/node_modules/esbuild postinstall:     at Object.execFileSync (node:child_process:944:15)
+.../esbuild@0.27.3/node_modules/esbuild postinstall:     at validateBinaryVersion (/home/u412659001/domains/shop-ledger-pro.com/public_html/.builds/source/repository/node_modules/.pnpm/esbuild@0.27.3/node_modules/esbuild/install.js:102:28)
+.../esbuild@0.27.3/node_modules/esbuild postinstall:     at /home/u412659001/domains/shop-ledger-pro.com/public_html/.builds/source/repository/node_modules/.pnpm/esbuild@0.27.3/node_modules/esbuild/install.js:287:5 {
+.../esbuild@0.27.3/node_modules/esbuild postinstall:   errno: -13,
+.../esbuild@0.27.3/node_modules/esbuild postinstall:   code: 'EACCES',
+.../esbuild@0.27.3/node_modules/esbuild postinstall:   syscall: 'spawnSync /home/u412659001/domains/shop-ledger-pro.com/public_html/.builds/source/repository/node_modules/.pnpm/esbuild@0.27.3/node_modules/esbuild/bin/esbuild',
+.../esbuild@0.27.3/node_modules/esbuild postinstall:   path: '/home/u412659001/domains/shop-ledger-pro.com/public_html/.builds/source/repository/node_modules/.pnpm/esbuild@0.27.3/node_modules/esbuild/bin/esbuild',
+.../esbuild@0.27.3/node_modules/esbuild postinstall:   spawnargs: [ '--version' ],
+.../esbuild@0.27.3/node_modules/esbuild postinstall:   error: [Circular *1],
+.../esbuild@0.27.3/node_modules/esbuild postinstall:   status: null,
+.../esbuild@0.27.3/node_modules/esbuild postinstall:   signal: null,
+.../esbuild@0.27.3/node_modules/esbuild postinstall:   output: null,
+.../esbuild@0.27.3/node_modules/esbuild postinstall:   pid: 0,
+.../esbuild@0.27.3/node_modules/esbuild postinstall:   stdout: undefined,
+.../esbuild@0.27.3/node_modules/esbuild postinstall:   stderr: undefined
+.../esbuild@0.27.3/node_modules/esbuild postinstall: }
+.../esbuild@0.27.3/node_modules/esbuild postinstall: Node.js v22.18.0
+.../esbuild@0.27.3/node_modules/esbuild postinstall: Failed
+[ELIFECYCLE] Command failed with exit code 1.
+[31mERROR: Failed to install dependencies[0m
