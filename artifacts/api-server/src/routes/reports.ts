@@ -6,7 +6,16 @@ import { requireAuth } from "../middlewares/auth";
 const router: IRouter = Router();
 
 function getDateRange(period: string, date?: string): { start: Date; end: Date } {
-  const ref = date ? new Date(date) : new Date();
+  let ref: Date;
+  if (date) {
+    // Parse "YYYY-MM-DD" as local calendar components to avoid UTC/local
+    // timezone mismatches that shift the resolved month/day on servers
+    // whose timezone isn't UTC.
+    const [y, m, d] = date.split("-").map(Number);
+    ref = new Date(y, (m ?? 1) - 1, d ?? 1);
+  } else {
+    ref = new Date();
+  }
   const start = new Date(ref);
   const end = new Date(ref);
 
