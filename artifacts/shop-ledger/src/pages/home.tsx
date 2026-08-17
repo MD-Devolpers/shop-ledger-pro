@@ -1,0 +1,722 @@
+import { useEffect, useState, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { 
+  useGetReportSummary,
+  useGetMe,
+  useCreateEntry, 
+  useListEntries,
+  useDeleteEntry,
+  useListCustomers,
+  useGetProfitReport,
+  getGetReportSummaryQueryKey,
+  getListEntriesQueryKey,
+} from "@workspace/api-client-react";
+import ReceiptModal, { type ReceiptData } from "@/components/receipt-modal";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { TrendingUp, TrendingDown, Wallet, CreditCard, Loader2, Trash2, Pencil, Handshake, ChevronDown, UserCheck, ArrowRightLeft, Phone, Download, Send, ShoppingCart, RotateCcw } from "lucide-react";
+import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import EditEntryDialog from "@/components/edit-entry-dialog";
+
+const entrySchema = z.object({
+  amount: z.coerce.number().positive("Amount must be positive"),
+  description: z.string().optional(),
+  profit: z.coerce.number().optional(),
+  paymentMethod: z.enum(["cash", "digital"]),
+  isCredit: z.boolean().default(false),
+  customerName: z.string().optional(),
+  contactNumber: z.string().optional(),
+});
+
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat("en-PK", {
+    style: "currency",
+    currency: "PKR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+export default function Home() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const { data: me } = useGetMe();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [entryType, setEntryType] = useState<"cash_in" | "cash_out">("cash_in");
+  const [editEntry, setEditEntry] = useState<number | null>(null);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const customerInputRef = useRef<HTMLInputElement>(null);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [isFundOperationMode, setIsFundOperationMode] = useState(false);
+  const isFundOperationRef = useRef(false);
+
+  const { data: summary, isLoading: summaryLoading } = useGetReportSummary();
+  const { data: monthlyProfit } = useGetProfitReport({ period: "monthly" });
+  const { data: todayEntries, isLoading: entriesLoading } = useListEntries({
+    date: new Date().toISOString().split("T")[0],
+  });
+  // Fetch all customers (no filter) for the dropdown list
+  const { data: allCustomers } = useListCustomers({});
+  // Fetch filtered customers when user types
+  const { data: filteredCustomers } = useListCustomers({ q: customerSearch });
+  const customers = customerSearch ? filteredCustomers : allCustomers;
+
+  const createEntry = useCreateEntry();
+  const deleteEntry = useDeleteEntry();
+
+  useEffect(() => {
+    document.title = "Dashboard - LedgerEntries";
+  }, []);
+
+  const form = useForm<z.infer<typeof entrySchema>>({
+    resolver: zodResolver(entrySchema),
+    defaultValues: {
+      amount: 0,
+      description: "",
+      paymentMethod: "cash",
+      isCredit: false,
+      customerName: "",
+      contactNumber: "",
+    },
+  });
+
+  const isCredit = form.watch("isCredit");
+  const watchedPaymentMethod = form.watch("paymentMethod");
+  const isFundTransfer = isFundOperationMode;
+
+  // Auto-focus customer name input and show saved customers when credit is toggled on
+  useEffect(() => {
+    if (isCredit && dialogOpen) {
+      setTimeout(() => {
+        customerInputRef.current?.focus();
+        setShowCustomerDropdown(true);
+      }, 50);
+    } else {
+      setShowCustomerDropdown(false);
+    }
+  }, [isCredit, dialogOpen]);
+
+  const openDialog = (type: "cash_in" | "cash_out", method: "cash" | "digital" = "cash") => {
+    setEntryType(type);
+    isFundOperationRef.current = method === "digital";
+    setIsFundOperationMode(method === "digital");
+    form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: method, isCredit: false, customerName: "", contactNumber: "" });
+    setCustomerSearch("");
+    setShowCustomerDropdown(false);
+    setDialogOpen(true);
+  };
+
+  const onSubmit = (data: z.infer<typeof entrySchema>) => {
+    const isFund = isFundOperationRef.current;
+    createEntry.mutate(
+      {
+        data: {
+          type: entryType,
+          amount: data.amount,
+          description: data.description || null,
+          profit: data.profit != null && data.profit > 0 ? data.profit : null,
+          paymentMethod: data.paymentMethod,
+          isCredit: data.isCredit,
+          isFundOperation: isFund,
+          customerName: (data.isCredit || isFund) ? (data.customerName || null) : null,
+          contactNumber: isFund ? (data.contactNumber || null) : null,
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetReportSummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListEntriesQueryKey() });
+          setDialogOpen(false);
+          const label = isFund
+            ? (entryType === "cash_in" ? "Fund Receive" : "Fund Transfer")
+            : (entryType === "cash_in" ? "Cash In" : "Cash Out");
+
+          if (isFund) {
+            setReceiptData({
+              storeName: (me as any)?.storeName || (me as any)?.username || "My Store",
+              transactionType: entryType === "cash_out" ? "Fund Transfer" : "Fund Receive",
+              amount: data.amount,
+              customerName: data.customerName || null,
+              contactNumber: data.contactNumber || null,
+              description: data.description || null,
+              date: new Date(),
+            });
+            setReceiptOpen(true);
+          } else {
+            toast({
+              title: `${label} recorded`,
+              description: `${formatCurrency(data.amount)} has been saved.`,
+            });
+          }
+        },
+        onError: (error) => {
+          toast({ title: "Error", description: error.error || "Failed to create entry.", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const handleDelete = (id: number) => {
+    deleteEntry.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetReportSummaryQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListEntriesQueryKey() });
+          toast({ title: "Entry moved to recycle bin" });
+        },
+      }
+    );
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Balance Summary */}
+      <div className="bg-primary text-primary-foreground p-5 pb-8">
+        <p className="text-sm font-medium opacity-80">Total Balance (Cash + Digital)</p>
+        {summaryLoading ? (
+          <div className="h-10 w-40 bg-primary-foreground/20 rounded animate-pulse mt-1" />
+        ) : (
+          <h2 className="text-4xl font-bold mt-1" data-testid="total-balance">
+            {formatCurrency(summary?.totalBalance ?? 0)}
+          </h2>
+        )}
+        <div className="grid grid-cols-3 gap-2 mt-4">
+          <div className="flex flex-col gap-1 bg-primary-foreground/10 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-1.5">
+              <Wallet className="h-3.5 w-3.5 opacity-70" />
+              <p className="text-[11px] opacity-70">Cash</p>
+            </div>
+            <p className="text-sm font-bold" data-testid="cash-balance">
+              {formatCurrency(summary?.cashBalance ?? 0)}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1 bg-primary-foreground/10 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-1.5">
+              <CreditCard className="h-3.5 w-3.5 opacity-70" />
+              <p className="text-[11px] opacity-70">Digital</p>
+            </div>
+            <p className="text-sm font-bold" data-testid="digital-balance">
+              {formatCurrency(summary?.digitalBalance ?? 0)}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1 bg-amber-400/30 border border-amber-300/30 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-1.5">
+              <Handshake className="h-3.5 w-3.5 opacity-80" />
+              <p className="text-[11px] opacity-80">Today Credit</p>
+            </div>
+            <p className="text-sm font-bold" data-testid="credit-balance">
+              {formatCurrency(
+                (todayEntries ?? [])
+                  .filter((e) => e.isCredit && e.type === "cash_in")
+                  .reduce((s, e) => s + e.amount, 0)
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="px-4 -mt-4 space-y-2.5">
+        {/* Cash Row */}
+        <div className="flex gap-2.5">
+          <Button
+            className="flex-1 h-14 bg-green-600 hover:bg-green-700 text-white shadow-md text-base font-semibold rounded-xl"
+            onClick={() => openDialog("cash_in", "cash")}
+            data-testid="button-cash-in"
+          >
+            <TrendingUp className="mr-2 h-5 w-5" />
+            Cash In
+          </Button>
+          <Button
+            className="flex-1 h-14 bg-red-600 hover:bg-red-700 text-white shadow-md text-base font-semibold rounded-xl"
+            onClick={() => openDialog("cash_out", "cash")}
+            data-testid="button-cash-out"
+          >
+            <TrendingDown className="mr-2 h-5 w-5" />
+            Cash Out
+          </Button>
+        </div>
+        {/* Digital Row */}
+        <div className="flex gap-2.5">
+          <Button
+            className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-md text-sm font-semibold rounded-xl"
+            onClick={() => openDialog("cash_in", "digital")}
+            data-testid="button-fund-receive"
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            Fund Receive
+          </Button>
+          <Button
+            className="flex-1 h-12 bg-violet-600 hover:bg-violet-700 text-white shadow-md text-sm font-semibold rounded-xl"
+            onClick={() => openDialog("cash_out", "digital")}
+            data-testid="button-fund-transfer"
+          >
+            <Send className="mr-1.5 h-4 w-4" />
+            Fund Transfer
+          </Button>
+        </div>
+        {/* Inventory Row */}
+        <div className="flex gap-2.5">
+          <Button
+            className="flex-1 h-12 bg-emerald-700 hover:bg-emerald-800 text-white shadow-md text-sm font-semibold rounded-xl"
+            onClick={() => navigate("/inventory/product-sale")}
+            data-testid="button-product-sale"
+          >
+            <ShoppingCart className="mr-1.5 h-4 w-4" />
+            Product Sale
+          </Button>
+          <Button
+            className="flex-1 h-12 bg-orange-600 hover:bg-orange-700 text-white shadow-md text-sm font-semibold rounded-xl"
+            onClick={() => navigate("/inventory/product-return")}
+            data-testid="button-product-return"
+          >
+            <RotateCcw className="mr-1.5 h-4 w-4" />
+            Product Return
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Row */}
+      <div className="px-4 mt-4 grid grid-cols-3 gap-2">
+        <div className="bg-card border rounded-xl p-3 text-center">
+          <p className="text-xs text-muted-foreground">Today Entries</p>
+          <p className="text-lg font-bold text-foreground" data-testid="today-entries-count">
+            {summary?.todayEntries ?? 0}
+          </p>
+        </div>
+        <div className="bg-card border rounded-xl p-3 text-center">
+          <p className="text-xs text-muted-foreground">Month Profit</p>
+          <p className="text-lg font-bold text-green-600" data-testid="total-profit">
+            {formatCurrency(monthlyProfit?.totalProfit ?? 0)}
+          </p>
+        </div>
+        <div className="bg-card border rounded-xl p-3 text-center">
+          <p className="text-xs text-muted-foreground">Total Credit</p>
+          <p className="text-lg font-bold text-amber-600" data-testid="total-credit">
+            {formatCurrency(summary?.creditBalance ?? 0)}
+          </p>
+        </div>
+      </div>
+
+      {/* Today's Entries */}
+      <div className="flex-1 px-4 mt-4 pb-4">
+        <h3 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+          Today's Entries
+        </h3>
+        {entriesLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-card border rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : !todayEntries || todayEntries.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <Wallet className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No entries today</p>
+            <p className="text-sm">Use Cash In or Cash Out to add entries</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {todayEntries.map((entry) => (
+              <div
+                key={entry.id}
+                className="bg-card border rounded-xl p-3 flex items-center gap-3"
+                data-testid={`entry-${entry.id}`}
+              >
+                <div
+                  className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    entry.type === "cash_in" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
+                  }`}
+                >
+                  {entry.type === "cash_in" ? (
+                    <TrendingUp className="h-5 w-5" />
+                  ) : (
+                    <TrendingDown className="h-5 w-5" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium truncate">
+                      {entry.description || (entry.type === "cash_in" ? "Cash In" : "Cash Out")}
+                    </p>
+                    {entry.paymentMethod === "digital" && (
+                      <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 bg-blue-100 text-blue-700">
+                        Digital
+                      </Badge>
+                    )}
+                    {entry.isCredit && (
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4">
+                        Credit
+                      </Badge>
+                    )}
+                  </div>
+                  {entry.customerName && (
+                    <p className="text-xs text-muted-foreground">{entry.customerName}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {format(new Date(entry.entryDate), "h:mm a")}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <p
+                    className={`text-base font-bold ${
+                      entry.type === "cash_in" ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {entry.type === "cash_in" ? "+" : "-"}
+                    {formatCurrency(entry.amount)}
+                  </p>
+                  <div className="flex gap-1">
+                    {(entry as any).isFundOperation && !entry.isCredit && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-[11px] text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 gap-1"
+                        onClick={() => {
+                          setReceiptData({
+                            storeName: (me as any)?.storeName || (me as any)?.username || "My Store",
+                            transactionType: entry.type === "cash_out" ? "Fund Transfer" : "Fund Receive",
+                            amount: entry.amount,
+                            customerName: (entry as any).customerName || null,
+                            contactNumber: (entry as any).contactNumber || null,
+                            description: entry.description || null,
+                            date: new Date(entry.entryDate),
+                          });
+                          setReceiptOpen(true);
+                        }}
+                      >
+                        <Download className="h-3 w-3" />
+                        Receipt
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setEditEntry(entry.id)}
+                      data-testid={`edit-entry-${entry.id}`}
+                    >
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => handleDelete(entry.id)}
+                      data-testid={`delete-entry-${entry.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Entry Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="entry-dialog">
+          <DialogHeader>
+            <DialogTitle className={
+              isFundTransfer
+                ? (entryType === "cash_in" ? "text-blue-600" : "text-violet-600")
+                : (entryType === "cash_in" ? "text-green-600" : "text-red-600")
+            }>
+              {entryType === "cash_in"
+                ? (isFundTransfer ? "Fund Receive" : "Cash In")
+                : (isFundTransfer ? "Fund Transfer" : "Cash Out")}
+            </DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Amount (Rs)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        {...field}
+                        className="text-xl font-bold h-12"
+                        data-testid="input-amount"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {/* Description — only shown when NOT digital (digital entries use the box below) */}
+              {!isFundTransfer && (
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="What is this for?" {...field} data-testid="input-description" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              {/* Profit — for Cash In and Fund Transfer */}
+              {(entryType === "cash_in" || (entryType === "cash_out" && isFundTransfer)) && (
+                <FormField
+                  control={form.control}
+                  name="profit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-1.5">
+                        <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                        Profit (Optional)
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="Profit on this transaction? (Optional)"
+                          {...field}
+                          value={field.value ?? ""}
+                          data-testid="input-profit"
+                        />
+                      </FormControl>
+                      <p className="text-[11px] text-muted-foreground">Will automatically appear in Profit Tracker</p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+              <FormField
+                control={form.control}
+                name="paymentMethod"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Method</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-payment-method">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="digital">Digital Payment</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {isFundTransfer && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs text-blue-700 font-semibold">
+                    {entryType === "cash_out" ? <Send className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
+                    {entryType === "cash_out" ? "Fund Transfer Details (Optional)" : "Fund Receive Details (Optional)"}
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="customerName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">{entryType === "cash_out" ? "Recipient Name" : "Customer Name"}</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Customer Name / Account Number" {...field} data-testid="input-transfer-name" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="contactNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Contact Number (Optional)</FormLabel>
+                        <FormControl>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-blue-500 pointer-events-none" />
+                            <Input
+                              placeholder="03XX-XXXXXXX"
+                              {...field}
+                              className="pl-9"
+                              inputMode="tel"
+                              data-testid="input-contact-number"
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Other Details (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Bank name, notes, reference..." {...field} data-testid="input-description" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+              <div className="flex items-center gap-3">
+                <Controller
+                  control={form.control}
+                  name="isCredit"
+                  render={({ field }) => (
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-primary"
+                        checked={field.value}
+                        onChange={field.onChange}
+                        data-testid="checkbox-is-credit"
+                      />
+                      <span className="text-sm">
+                        {entryType === "cash_in" && isFundTransfer
+                          ? "Mark as Received Credit (payment pending)"
+                          : "Mark as Credit"}
+                      </span>
+                    </label>
+                  )}
+                />
+              </div>
+              {isCredit && (
+                <>
+                  <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                    <Handshake className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                    <span>
+                      {entryType === "cash_in" && isFundTransfer
+                        ? "This payment will be saved under Received Credits — the customer's pending digital payment will appear in your Credits page."
+                        : "This entry will also be saved on the Credits page. Selecting an existing customer will add to their existing balance."}
+                    </span>
+                  </div>
+                  {/* Customer name for credit — hidden in digital mode since it's already in the blue box */}
+                  {!isFundTransfer && <FormField
+                    control={form.control}
+                    name="customerName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Customer Name</FormLabel>
+                        <div className="relative">
+                          <FormControl>
+                            <Input
+                              ref={customerInputRef}
+                              placeholder="Type or select a customer name..."
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                setCustomerSearch(e.target.value);
+                                setShowCustomerDropdown(true);
+                              }}
+                              onFocus={() => setShowCustomerDropdown(true)}
+                              onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 150)}
+                              autoComplete="off"
+                              data-testid="input-customer-name"
+                            />
+                          </FormControl>
+                          {/* Existing customers dropdown */}
+                          {showCustomerDropdown && customers && customers.length > 0 && (
+                            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto">
+                              <p className="text-[10px] text-muted-foreground px-3 pt-2 pb-1 uppercase tracking-wide font-semibold">Existing Customers</p>
+                              {customers.map((c) => (
+                                <button
+                                  key={c.id}
+                                  type="button"
+                                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-accent transition-colors"
+                                  onMouseDown={() => {
+                                    field.onChange(c.name);
+                                    setCustomerSearch(c.name);
+                                    setShowCustomerDropdown(false);
+                                  }}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <UserCheck className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                                    <span className="text-sm font-medium">{c.name}</span>
+                                  </div>
+                                  <span className="text-xs text-amber-600 font-semibold flex-shrink-0">
+                                    {formatCurrency(c.totalCredit)} pending
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {showCustomerDropdown && (!customers || customers.length === 0) && (
+                            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-xl shadow-lg p-3 text-xs text-muted-foreground">
+                              No existing customers. Type a new name to create one.
+                            </div>
+                          )}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />}
+                </>
+              )}
+              <Button
+                type="submit"
+                className={`w-full h-12 text-base font-semibold ${
+                  isFundTransfer
+                    ? entryType === "cash_in"
+                      ? "bg-blue-600 hover:bg-blue-700"
+                      : "bg-violet-600 hover:bg-violet-700"
+                    : entryType === "cash_in"
+                      ? "bg-green-600 hover:bg-green-700"
+                      : "bg-red-600 hover:bg-red-700"
+                }`}
+                disabled={createEntry.isPending}
+                data-testid="button-submit-entry"
+              >
+                {createEntry.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Entry
+              </Button>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Entry Dialog */}
+      {editEntry !== null && (
+        <EditEntryDialog
+          entryId={editEntry}
+          onClose={() => setEditEntry(null)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: getGetReportSummaryQueryKey() });
+            queryClient.invalidateQueries({ queryKey: getListEntriesQueryKey() });
+            setEditEntry(null);
+          }}
+        />
+      )}
+
+      {/* Receipt Modal */}
+      <ReceiptModal
+        open={receiptOpen}
+        onClose={() => setReceiptOpen(false)}
+        data={receiptData}
+      />
+    </div>
+  );
+}

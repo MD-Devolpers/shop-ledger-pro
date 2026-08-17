@@ -1,0 +1,320 @@
+import { Router, type IRouter } from "express";
+import { eq, and, gte, lte, isNull, sum, count, sql, desc } from "drizzle-orm";
+import { db, entriesTable, creditsTable, closingsTable } from "@workspace/db";
+import { requireAuth } from "../middlewares/auth";
+
+const router: IRouter = Router();
+
+function getDateRange(period: string, date?: string): { start: Date; end: Date } {
+  let ref: Date;
+  if (date) {
+    // Parse "YYYY-MM-DD" as local calendar components to avoid UTC/local
+    // timezone mismatches that shift the resolved month/day on servers
+    // whose timezone isn't UTC.
+    const [y, m, d] = date.split("-").map(Number);
+    ref = new Date(y, (m ?? 1) - 1, d ?? 1);
+  } else {
+    ref = new Date();
+  }
+  const start = new Date(ref);
+  const end = new Date(ref);
+
+  if (period === "daily") {
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+  } else if (period === "yesterday") {
+    start.setDate(ref.getDate() - 1);
+    start.setHours(0, 0, 0, 0);
+    end.setDate(ref.getDate() - 1);
+    end.setHours(23, 59, 59, 999);
+  } else if (period === "weekly") {
+    const day = ref.getDay();
+    start.setDate(ref.getDate() - day);
+    start.setHours(0, 0, 0, 0);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+  } else if (period === "monthly") {
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+    end.setMonth(ref.getMonth() + 1, 0);
+    end.setHours(23, 59, 59, 999);
+  } else if (period === "yearly") {
+    start.setMonth(0, 1);
+    start.setHours(0, 0, 0, 0);
+    end.setMonth(11, 31);
+    end.setHours(23, 59, 59, 999);
+  }
+
+  return { start, end };
+}
+
+function formatEntry(e: typeof entriesTable.$inferSelect) {
+  return {
+    id: e.id,
+    userId: e.userId,
+    type: e.type,
+    amount: parseFloat(e.amount),
+    description: e.description,
+    paymentMethod: e.paymentMethod,
+    profit: e.profit != null ? parseFloat(e.profit) : null,
+    isCredit: e.isCredit,
+    customerName: e.customerName,
+    contactNumber: e.contactNumber ?? null,
+    source: e.source ?? null,
+    deletedAt: e.deletedAt ? e.deletedAt.toISOString() : null,
+    entryDate: e.entryDate.toISOString(),
+    createdAt: e.createdAt.toISOString(),
+    updatedAt: e.updatedAt.toISOString(),
+  };
+}
+
+router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.session!.userId!;
+
+  const userEntries = await db
+    .select()
+    .from(entriesTable)
+    .where(and(eq(entriesTable.userId, userId), isNull(entriesTable.deletedAt)));
+
+  let cashBalance = 0;
+  let digitalBalance = 0;
+  let totalCashIn = 0;
+  let totalCashOut = 0;
+  let totalProfit = 0;
+  let totalCreditGiven = 0;
+  let totalCreditReceived = 0;
+
+  for (const entry of userEntries) {
+    const amount = parseFloat(entry.amount);
+    const profit = entry.profit ? parseFloat(entry.profit) : 0;
+    totalProfit += profit;
+
+    // Credit entries do NOT count toward cash/digital balance
+    if (entry.isCredit) {
+      if (entry.type === "cash_in") {
+        totalCreditGiven += amount; // someone owes you
+      } else {
+        totalCreditReceived += amount; // you owe someone
+      }
+      continue;
+    }
+
+    if (entry.paymentMethod === "cash") {
+      if (entry.type === "cash_in") {
+        cashBalance += amount;
+        totalCashIn += amount;
+      } else {
+        cashBalance -= amount;
+        totalCashOut += amount;
+      }
+    } else {
+      // Digital payment:
+      // Only Fund Receive / Fund Transfer do a cash↔digital swap.
+      // Regular Cash In / Cash Out with digital just moves digital balance.
+      if (entry.type === "cash_in") {
+        totalCashIn += amount;
+        if (entry.isFundOperation) {
+          digitalBalance += amount;  // Fund Receive → digital+, cash-
+          cashBalance -= amount;
+        } else {
+          digitalBalance += amount;  // Digital sale → digital+ only
+        }
+      } else {
+        totalCashOut += amount;
+        if (entry.isFundOperation) {
+          digitalBalance -= amount;  // Fund Transfer → digital-, cash+
+          cashBalance += amount;
+        } else {
+          digitalBalance -= amount;  // Digital expense → digital- only
+        }
+      }
+    }
+  }
+
+  // Subtract closing/personal wallet withdrawals from the respective balances
+  const closingTotals = await db
+    .select({ source: closingsTable.source, total: sum(closingsTable.amount) })
+    .from(closingsTable)
+    .where(eq(closingsTable.userId, userId))
+    .groupBy(closingsTable.source);
+
+  let cashClosing = 0;
+  let digitalClosing = 0;
+  for (const c of closingTotals) {
+    if (c.source === "cash") cashClosing = parseFloat(c.total ?? "0");
+    if (c.source === "digital") digitalClosing = parseFloat(c.total ?? "0");
+  }
+  cashBalance -= cashClosing;
+  digitalBalance -= digitalClosing;
+  const personalWallet = cashClosing + digitalClosing;
+
+  // Calculate credit balances from the credits table (live, reflects all payments)
+  const pendingCredits = await db
+    .select({ type: creditsTable.type, totalAmount: sum(creditsTable.amount) })
+    .from(creditsTable)
+    .where(and(eq(creditsTable.userId, userId), eq(creditsTable.status, "pending")))
+    .groupBy(creditsTable.type);
+
+  const pendingGiven = parseFloat(
+    pendingCredits.find((c) => c.type === "given")?.totalAmount ?? "0"
+  );
+  const pendingReceived = parseFloat(
+    pendingCredits.find((c) => c.type === "received")?.totalAmount ?? "0"
+  );
+
+  // totalCredit = money customers owe you (pending given credits only)
+  const totalCredit = pendingGiven;
+  // creditBalance = net: owed to you minus you owe others
+  const creditBalance = pendingGiven - pendingReceived;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(today);
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const todayCount = userEntries.filter((e) => {
+    const d = new Date(e.entryDate);
+    return d >= today && d <= todayEnd;
+  }).length;
+
+  res.json({
+    cashBalance: Math.round(cashBalance * 100) / 100,
+    digitalBalance: Math.round(digitalBalance * 100) / 100,
+    totalBalance: Math.round((cashBalance + digitalBalance) * 100) / 100,
+    personalWallet: Math.round(personalWallet * 100) / 100,
+    totalCashIn: Math.round(totalCashIn * 100) / 100,
+    totalCashOut: Math.round(totalCashOut * 100) / 100,
+    totalProfit: Math.round(totalProfit * 100) / 100,
+    totalCredit: Math.round(totalCredit * 100) / 100,
+    creditBalance: Math.round(creditBalance * 100) / 100,
+    totalCreditGiven: Math.round(totalCreditGiven * 100) / 100,
+    totalCreditReceived: Math.round(totalCreditReceived * 100) / 100,
+    todayEntries: todayCount,
+  });
+});
+
+router.get("/reports/entries", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.session!.userId!;
+  const period = req.query.period as string;
+  const date = req.query.date as string | undefined;
+
+  if (!period || !["daily", "weekly", "monthly"].includes(period)) {
+    res.status(400).json({ error: "Invalid period. Use daily, weekly, or monthly" });
+    return;
+  }
+
+  const { start, end } = getDateRange(period, date);
+
+  const entries = await db
+    .select()
+    .from(entriesTable)
+    .where(
+      and(
+        eq(entriesTable.userId, userId),
+        isNull(entriesTable.deletedAt),
+        gte(entriesTable.entryDate, start),
+        lte(entriesTable.entryDate, end)
+      )
+    )
+    .orderBy(desc(entriesTable.entryDate));
+
+  let cashIn = 0;
+  let cashOut = 0;
+  let cashBalance = 0;
+  let digitalBalance = 0;
+
+  for (const entry of entries) {
+    const amount = parseFloat(entry.amount);
+    const isFund = entry.isFundOperation;
+    if (entry.type === "cash_in") {
+      cashIn += amount;
+      if (entry.paymentMethod === "cash") {
+        cashBalance += amount;           // Cash In (cash) → cash+
+      } else if (isFund) {
+        digitalBalance += amount;        // Fund Receive → digital+, cash-
+        cashBalance -= amount;
+      } else {
+        digitalBalance += amount;        // Cash In (digital sale) → digital+ only
+      }
+    } else {
+      cashOut += amount;
+      if (entry.paymentMethod === "cash") {
+        cashBalance -= amount;           // Cash Out (cash) → cash-
+      } else if (isFund) {
+        digitalBalance -= amount;        // Fund Transfer → digital-, cash+
+        cashBalance += amount;
+      } else {
+        digitalBalance -= amount;        // Cash Out (digital expense) → digital- only
+      }
+    }
+  }
+
+  res.json({
+    period,
+    startDate: start.toISOString(),
+    endDate: end.toISOString(),
+    totalCashIn: Math.round(cashIn * 100) / 100,
+    totalCashOut: Math.round(cashOut * 100) / 100,
+    cashBalance: Math.round(cashBalance * 100) / 100,
+    digitalBalance: Math.round(digitalBalance * 100) / 100,
+    entries: entries.map(formatEntry),
+  });
+});
+
+router.get("/reports/profit", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.session!.userId!;
+  const period = req.query.period as string;
+  const date = req.query.date as string | undefined;
+
+  if (!period || !["daily", "weekly", "monthly", "yesterday", "yearly"].includes(period)) {
+    res.status(400).json({ error: "Invalid period. Use daily, weekly, monthly, yesterday, or yearly" });
+    return;
+  }
+
+  const { start, end } = getDateRange(period, date);
+
+  // For the yearly period we want profit entries across ALL years (one bar
+  // per year on the client), so we intentionally drop the date restriction.
+  const isAllYears = period === "yearly";
+
+  const conditions = [
+    eq(entriesTable.userId, userId),
+    isNull(entriesTable.deletedAt),
+  ];
+  if (!isAllYears) {
+    conditions.push(gte(entriesTable.entryDate, start));
+    conditions.push(lte(entriesTable.entryDate, end));
+  }
+
+  const entries = await db
+    .select()
+    .from(entriesTable)
+    .where(and(...conditions))
+    .orderBy(desc(entriesTable.entryDate));
+
+  let totalProfit = 0;
+  const entriesWithProfit = entries.filter((e) => e.profit != null);
+
+  for (const entry of entriesWithProfit) {
+    if (entry.profit) totalProfit += parseFloat(entry.profit);
+  }
+
+  // Reflect the actual span of returned data in the response for yearly.
+  let startDate = start;
+  let endDate = end;
+  if (isAllYears && entries.length > 0) {
+    const dates = entries.map((e) => new Date(e.entryDate).getTime());
+    startDate = new Date(Math.min(...dates));
+    endDate = new Date(Math.max(...dates));
+  }
+
+  res.json({
+    period,
+    startDate: startDate.toISOString(),
+    endDate: endDate.toISOString(),
+    totalProfit: Math.round(totalProfit * 100) / 100,
+    entriesWithProfit: entries.map(formatEntry),
+  });
+});
+
+export default router;

@@ -1,0 +1,80 @@
+jab mai stock purchase karo tw os mai collection aur category m tw master sai connect huwy show hoty hai es mai ek new feautere add karo ki stock purcase k time b category aur collection mai old b show hu aur new collection b add kar sko jab need hu tw wo auto master mai add hu 
+aur company option b ek add karo har company b show hu jab purcashe karo default par wohi copamny hu agar mai mix cpmpanies ka product add karo tw osi time wohi company os product kay lye change karo adding time jab comny change karo phir tab tak wohi copany select hu jab tak mai again change na karo aur product add time new company b add kar sakta hu jab need hu 
+mera mtlb ye hai like mai product add karo uper jo company select hu waohi default par hu like interlink k company select kya hu 10 product osky add kye phir media net kai produt os bill mai add karna chaho tw wo hu like 5 product media net k add krny hu tw phir media net ka compny hu jab tak mai chnge n karo 
+like mc 97 cable mai n add kya tw jab wo again  add karo ek bill mai tw again add na hu os bill mai duplicate entries na hu 
+new bill jab add karo mc97 cable aur alredy mery stock mai hu tw wo old data auto show hu all sale purache rate auto set hu phir mai change karo tw change b hoskta hu  lkn auto old show hu 
+like mc 97 cable mai n 170 ka puracse kya hu alreday meey pas stock mai hu aur sale price 250 hu 
+tw jab mai new purchase karo mc 97 ka tw auto show hu purana rate jab mai chnage karo new entries mai tw all old new prdouct ka product sale mai new rate show hu purchase reporrt mai old show hu like 3 december ko main ek bill mai mc97 cable 170 mai purchase kya tw os rpeort mai wohi rate hu new mai m agar rate chnage karo tw new bill mai new report mai show hu 
+report ka pdf fole b hu download karo ya print kr
+o har entery k samny hu  
+Bill #34 — Preview
+Shop Ledger
+
+Purchase Bill
+
+#34
+
+17 Aug 2026
+
+Supplier
+
+medianet
+
+Company
+
+medianet
+
+Total
+
+Rs 62,000
+
+#	Product	Qty	Purchase Rate	Sale Rate	Total
+1	
+charger grace
+grace
+50	Rs 450	Rs 600	Rs 22,500
+2	
+cable dc 10
+dc10
+20	Rs 200	Rs 500	Rs 4,000
+3	
+charger gold
+gold
+15	Rs 500	Rs 600	Rs 7,500
+4	
+cable 15 w
+15w
+50	Rs 500	Rs 800	Rs 25,000
+5	
+cable mc97
+mc97
+15	Rs 200	Rs 350	Rs 3,000
+Grand Total	Rs 62,000
+Close
+Print Bil 
+like ye ek purcahe ka bill hai tw es mai har agar mix compnies product add karo tw har compny k smany apna name hu aur uper top par jin compnies k product add hu wohi name show hu 
+aur purcahse bill mai serf sale ballens ka hiisab show hu aur total 
+aur jab mix xompanies ka purchase el sath karo tw har companes har collection 
+Product Reports
+Sales, profit and stock value reports
+
+Stock Value Report
+Product Sales
+Date-wise
+Product Profit
+Filter:
+All Products
+Company-wise
+Category-wise
+Product-wise
+sab apni jaga report mai show hu 
+
+product jab chek karo like ab aesa hai jo screen shot mai hai tw osko alag alag  karo like cable alag table mai hu charger alag table mai hu es mai b ek table banao like jesa product purchase ka table hai wesa table banao report mai product sai relted har chez  report mai show hu like quantity 
+etc 
+like cable ka product wise hu a to z seriel wise cable hu tw jo jo cable add hu wohi cabele show hu agar alag alag cable hu tw alag alag show hu 
+category wise jab all product chek akro tw all comapnies ka show hu aes jab company wise chek karo tw copany wise hu
+Inventory / Stock
+All stock and product details
+
+mai b aesa table hu 
+
