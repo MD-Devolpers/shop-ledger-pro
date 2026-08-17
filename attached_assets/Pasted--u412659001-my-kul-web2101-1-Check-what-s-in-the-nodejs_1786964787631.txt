@@ -1,0 +1,55 @@
+[u412659001@my-kul-web2101 ~]$ # 1. Check what's in the nodejs folder
+ls -la /home/u412659001/domains/shop-ledger.online/nodejs/
+
+# 2. Check .htaccess for proxy rules
+cat /home/u412659001/domains/shop-ledger.online/public_html/.htaccess 2>/dev/null || echo "No .htaccess"
+
+# 3. Check index.js entry point
+cat /home/u412659001/domains/shop-ledger.online/nodejs/index.js
+
+# 4. Check what PORT the app should listen on
+env | grep PORT
+
+# 5. Try starting the server and see what port it binds to
+cd /home/u412659001/domains/shop-ledger.online/nodejs/
+timeout 8 node index.js 2>&1
+
+# 6. Check if lsnode exists
+which lsnode 2>/dev/null || find /usr/local -name "lsnode" 2>/dev/null | head -5
+total 5304
+drwxr-xr-x 10 u412659001 o1009648384    4096 Aug 17 10:44 .
+drwxr-xr-x  5 u412659001 o1009648384    4096 Aug 17 08:44 ..
+drwxr-xr-x  3 u412659001 o1009648384    4096 Jul 11 06:22 .agents
+drwxr-xr-x  5 u412659001 o1009648384    4096 Jul 11 06:22 artifacts
+drwxr-xr-x  2 u412659001 o1009648384    4096 Jul 11 06:22 attached_assets
+-rw-r--r--  1 u412659001 o1009648384 4807552 Aug 17 10:13 console.log
+drwxr-xr-x  8 u412659001 o1009648384    4096 Aug 17 08:44 .git
+-rw-r--r--  1 u412659001 o1009648384     668 Jul 11 06:22 .gitignore
+-rw-r--r--  1 u412659001 o1009648384     329 Aug 17 10:43 index.js
+drwxr-xr-x  6 u412659001 o1009648384    4096 Jul 11 06:22 lib
+drwxr-xr-x  4 u412659001 o1009648384    4096 Jul 11 06:22 node_modules
+-rw-r--r--  1 u412659001 o1009648384     121 Jul 11 06:22 .npmrc
+-rw-r--r--  1 u412659001 o1009648384     680 Aug 17 08:46 package.json
+-rw-r--r--  1 u412659001 o1009648384  411934 Aug 17 08:46 pnpm-lock.yaml
+-rw-r--r--  1 u412659001 o1009648384    6591 Jul 11 06:22 pnpm-workspace.yaml
+-rw-r--r--  1 u412659001 o1009648384     386 Jul 11 06:22 railpack.json
+-rw-r--r--  1 u412659001 o1009648384     647 Jul 11 06:22 .replit
+-rw-r--r--  1 u412659001 o1009648384     201 Jul 11 06:22 .replitignore
+-rw-r--r--  1 u412659001 o1009648384    5823 Jul 11 06:22 replit.md
+drwxr-xr-x  4 u412659001 o1009648384    4096 Jul 11 06:22 scripts
+-rw-r--r--  1 u412659001 o1009648384     225 Jul 11 06:22 start-railway.sh
+-rw-r--r--  1 u412659001 o1009648384   40185 Aug 17 09:00 stderr.log
+drwxr-xr-x  2 u412659001 o1009648384    4096 Aug 17 08:55 tmp
+-rw-r--r--  1 u412659001 o1009648384     667 Jul 11 06:22 tsconfig.base.json
+-rw-r--r--  1 u412659001 o1009648384     236 Jul 11 06:22 tsconfig.json
+No .htaccess
+// Hostinger / LiteSpeed entry point
+// Launches the pre-built API server (artifacts/api-server/dist/index.mjs)
+// which also serves the React frontend from artifacts/shop-ledger/dist/public
+
+import("./artifacts/api-server/dist/index.mjs").catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
+});
+timeout: failed to run command ‘node’: No such file or directory
+[u412659001@my-kul-web2101 nodejs]$ 
