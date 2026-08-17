@@ -80,16 +80,31 @@ jobs:
 
       - name: Deploy .env to Hostinger
         run: |
-          ssh hostinger "cat > /home/u412659001/domains/shop-ledger.online/nodejs/.env <<'ENVEOF'
-          DATABASE_URL=${{ secrets.DATABASE_URL }}
-          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-          GMAIL_USER=${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASSWORD=${{ secrets.GMAIL_APP_PASSWORD }}
-          RESTART_TOKEN=${{ secrets.RESTART_TOKEN }}
+          cat > /tmp/deploy.env << 'ENVEOF'
+          DATABASE_URL=PLACEHOLDER_DB
+          SESSION_SECRET=PLACEHOLDER_SS
+          GMAIL_USER=PLACEHOLDER_GU
+          GMAIL_APP_PASSWORD=PLACEHOLDER_GP
+          RESTART_TOKEN=PLACEHOLDER_RT
           NODE_ENV=production
           COOKIE_SECURE=true
-          ENVEOF"
-          echo "Deployed .env"
+          ENVEOF
+          # Write clean .env with actual values (no leading spaces)
+          printf 'DATABASE_URL=%s\n' '${{ secrets.DATABASE_URL }}' > /tmp/deploy.env
+          printf 'SESSION_SECRET=%s\n' '${{ secrets.SESSION_SECRET }}' >> /tmp/deploy.env
+          printf 'GMAIL_USER=%s\n' '${{ secrets.GMAIL_USER }}' >> /tmp/deploy.env
+          printf 'GMAIL_APP_PASSWORD=%s\n' '${{ secrets.GMAIL_APP_PASSWORD }}' >> /tmp/deploy.env
+          printf 'RESTART_TOKEN=%s\n' '${{ secrets.RESTART_TOKEN }}' >> /tmp/deploy.env
+          printf 'NODE_ENV=production\n' >> /tmp/deploy.env
+          printf 'COOKIE_SECURE=true\n' >> /tmp/deploy.env
+          rsync -az -e "ssh -p 65002 -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+            /tmp/deploy.env \
+            u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/.env
+          echo "Deployed .env successfully"
+
+      - name: Find node binary path on Hostinger
+        run: |
+          ssh hostinger "which node 2>/dev/null || find /usr/local -name 'node' -type f 2>/dev/null | head -5 || echo 'node not found in standard paths'"
 
       - name: Restart server (Hostinger touch mechanism)
         run: |
