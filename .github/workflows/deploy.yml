@@ -51,10 +51,16 @@ jobs:
             artifacts/api-server/dist/ \
             u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/artifacts/api-server/dist/
 
-      - name: Deploy frontend dist
+      - name: Deploy frontend dist (nodejs path for Node.js to serve)
         run: |
           rsync -az --delete -e "ssh -p 65002 -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
-            artifacts/shop-ledger/dist/ \
+            artifacts/shop-ledger/dist/public/ \
+            u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/artifacts/shop-ledger/dist/public/
+
+      - name: Deploy frontend dist (public_html, preserve .htaccess)
+        run: |
+          rsync -az --delete --exclude='.htaccess' -e "ssh -p 65002 -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+            artifacts/shop-ledger/dist/public/ \
             u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/public_html/
 
       - name: Deploy entry file
