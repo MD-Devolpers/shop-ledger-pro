@@ -304,6 +304,10 @@ export default function Home() {
               (todayEntries ?? [])
                 .filter((e) => e.type === "cash_in" && !e.isFundOperation)
                 .reduce((s, e) => s + e.amount, 0)
+              -
+              (todayEntries ?? [])
+                .filter((e) => e.type === "cash_out" && !e.isFundOperation && (e.description ?? "").toLowerCase().includes("product return"))
+                .reduce((s, e) => s + e.amount, 0)
             )}
           </p>
         </div>
@@ -340,7 +344,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-2">
-            {todayEntries.map((entry) => (
+            {[...todayEntries].sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime()).map((entry) => (
               <div
                 key={entry.id}
                 className="bg-card border rounded-xl p-3 flex items-center gap-3"
