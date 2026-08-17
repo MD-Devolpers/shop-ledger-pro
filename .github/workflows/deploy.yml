@@ -37,12 +37,15 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.HOSTINGER_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          echo "Host shop-ledger.online" >> ~/.ssh/config
-          echo "  Port 65002" >> ~/.ssh/config
-          echo "  User u412659001" >> ~/.ssh/config
-          echo "  IdentityFile ~/.ssh/id_rsa" >> ~/.ssh/config
-          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
-          echo "  UserKnownHostsFile /dev/null" >> ~/.ssh/config
+          cat >> ~/.ssh/config <<EOF
+          Host hostinger
+            HostName shop-ledger.online
+            Port 65002
+            User u412659001
+            IdentityFile ~/.ssh/id_rsa
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOF
           chmod 600 ~/.ssh/config
 
       - name: Deploy backend dist
@@ -51,13 +54,13 @@ jobs:
             artifacts/api-server/dist/ \
             u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/artifacts/api-server/dist/
 
-      - name: Deploy frontend dist (nodejs path for Node.js to serve)
+      - name: Deploy frontend to nodejs dir (Node.js serves this in production)
         run: |
           rsync -az --delete -e "ssh -p 65002 -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
             artifacts/shop-ledger/dist/public/ \
             u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/artifacts/shop-ledger/dist/public/
 
-      - name: Deploy frontend dist (public_html, preserve .htaccess)
+      - name: Deploy frontend to public_html (preserves .htaccess)
         run: |
           rsync -az --delete --exclude='.htaccess' -e "ssh -p 65002 -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
             artifacts/shop-ledger/dist/public/ \
@@ -69,10 +72,8 @@ jobs:
             index.js \
             u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/index.js
 
-      - name: Restart server
+      - name: Restart server (Hostinger touch mechanism)
         run: |
-          sleep 5
-          curl -s -X POST https://shop-ledger.online/api/admin/restart \
-            -H "x-restart-token: ${{ secrets.RESTART_TOKEN }}" \
-            --max-time 10 || echo "Restart signal sent (server will reload)"
-# Auto-deploy enabled via GitHub Actions
+          ssh hostinger "mkdir -p /home/u412659001/domains/shop-ledger.online/nodejs/tmp && \
+            touch /home/u412659001/domains/shop-ledger.online/nodejs/tmp/restart.txt"
+          echo "Server restart triggered"
