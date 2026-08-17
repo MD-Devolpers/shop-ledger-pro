@@ -290,11 +290,21 @@ export default function Home() {
       </div>
 
       {/* Stats Row */}
-      <div className="px-4 mt-4 grid grid-cols-3 gap-2">
+      <div className="px-4 mt-4 grid grid-cols-2 gap-2">
         <div className="bg-card border rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Today Entries</p>
           <p className="text-lg font-bold text-foreground" data-testid="today-entries-count">
             {summary?.todayEntries ?? 0}
+          </p>
+        </div>
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+          <p className="text-xs text-emerald-700 font-medium">Today Sales</p>
+          <p className="text-lg font-bold text-emerald-600" data-testid="today-sales-total">
+            {formatCurrency(
+              (todayEntries ?? [])
+                .filter((e) => e.type === "cash_in" && !e.isFundOperation)
+                .reduce((s, e) => s + e.amount, 0)
+            )}
           </p>
         </div>
         <div className="bg-card border rounded-xl p-3 text-center">

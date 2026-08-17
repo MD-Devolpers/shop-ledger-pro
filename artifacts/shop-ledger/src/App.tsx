@@ -15,6 +15,7 @@ import VerifyEmail from "@/pages/verify-email";
 import Admin from "@/pages/admin";
 import Home from "@/pages/home";
 import Entries from "@/pages/entries";
+import EntriesReport from "@/pages/entries-report";
 import Credits from "@/pages/credits";
 import Profits from "@/pages/profits";
 import Reports from "@/pages/reports";
@@ -79,6 +80,9 @@ function Router() {
       </Route>
       <Route path="/entries">
         <ProtectedLayout><Entries /></ProtectedLayout>
+      </Route>
+      <Route path="/entries-report">
+        <ProtectedLayout><EntriesReport /></ProtectedLayout>
       </Route>
       <Route path="/credits">
         <ProtectedLayout><Credits /></ProtectedLayout>

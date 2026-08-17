@@ -9,6 +9,7 @@ import {
   DatabaseBackup,
   LogOut,
   ScrollText,
+  FileSpreadsheet,
   Trash2,
   Wallet,
   Banknote,
@@ -44,6 +45,7 @@ const bottomNavItems = [
 ];
 
 const moreItems = [
+  { icon: FileSpreadsheet, label: "Entry Report", href: "/entries-report" },
   { icon: TrendingUp, label: "Profits", href: "/profits" },
   { icon: Wallet, label: "Closing", href: "/closing" },
   { icon: FileBarChart2, label: "Digital Report", href: "/digital-report" },
@@ -62,6 +64,7 @@ const moreItems = [
 const sidebarNavItems = [
   { icon: Home, label: "Home", href: "/app" },
   { icon: ListOrdered, label: "Entries", href: "/entries" },
+  { icon: FileSpreadsheet, label: "Entry Report", href: "/entries-report" },
   { icon: Users, label: "Credits", href: "/credits" },
   { icon: TrendingUp, label: "Profits", href: "/profits" },
   { icon: BarChart3, label: "Reports", href: "/reports" },
