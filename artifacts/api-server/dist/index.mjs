@@ -80350,6 +80350,16 @@ router9.patch("/admin/users/:id/verify-email", requireAdmin, async (req, res) =>
   }
   res.json({ ...updated, message: "Email manually verified" });
 });
+router9.post("/admin/restart", (req, res) => {
+  const token = req.headers["x-restart-token"];
+  const expected = process.env.RESTART_TOKEN;
+  if (!expected || token !== expected) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  res.json({ message: "Restarting server..." });
+  setTimeout(() => process.exit(0), 300);
+});
 var admin_default = router9;
 
 // src/routes/closing.ts

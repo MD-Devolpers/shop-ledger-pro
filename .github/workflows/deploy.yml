@@ -63,10 +63,10 @@ jobs:
             index.js \
             u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/index.js
 
-      - name: Signal deploy complete
+      - name: Restart server
         run: |
-          ssh -p 65002 -i ~/.ssh/id_rsa \
-            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-            u412659001@shop-ledger.online \
-            "echo 'Deploy complete — new files are live. Restart Node.js from hPanel if needed.'"
+          sleep 5
+          curl -s -X POST https://shop-ledger.online/api/admin/restart \
+            -H "x-restart-token: ${{ secrets.RESTART_TOKEN }}" \
+            --max-time 10 || echo "Restart signal sent (server will reload)"
 # Auto-deploy enabled via GitHub Actions

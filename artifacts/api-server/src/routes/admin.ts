@@ -227,5 +227,18 @@ router.patch("/admin/users/:id/verify-email", requireAdmin, async (req, res): Pr
   res.json({ ...updated, message: "Email manually verified" });
 });
 
+
+// POST /admin/restart — called by GitHub Actions after each deploy
+router.post("/admin/restart", (req, res): void => {
+  const token = req.headers["x-restart-token"];
+  const expected = process.env.RESTART_TOKEN;
+  if (!expected || token !== expected) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  res.json({ message: "Restarting server..." });
+  setTimeout(() => process.exit(0), 300);
+});
+
 export default router;
 
