@@ -82013,6 +82013,9 @@ var REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 async function getBucket() {
   const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
   if (!bucketId) throw new Error("DEFAULT_OBJECT_STORAGE_BUCKET_ID not set");
+  if (!process.env.REPL_ID && !process.env.REPLIT_DB_URL) {
+    throw new Error("Object storage is only available on Replit.");
+  }
   try {
     const { Storage } = await import("@google-cloud/storage");
     const client = new Storage({

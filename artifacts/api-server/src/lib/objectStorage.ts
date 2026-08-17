@@ -17,6 +17,11 @@ const REPLIT_SIDECAR_ENDPOINT = 'http://127.0.0.1:1106';
 let _storageLib: any = null;
 async function getStorageLib(): Promise<any> {
   if (_storageLib) return _storageLib;
+  // @google-cloud/storage only works on Replit (needs sidecar endpoint).
+  // Skip the import entirely on other servers to prevent startup crashes.
+  if (!process.env.REPL_ID && !process.env.REPLIT_DB_URL) {
+    throw new Error('Object storage is only available on Replit.');
+  }
   try {
     _storageLib = await import('@google-cloud/storage');
     return _storageLib;
