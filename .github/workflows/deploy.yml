@@ -37,28 +37,36 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.HOSTINGER_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p 65002 shop-ledger.online >> ~/.ssh/known_hosts 2>/dev/null
+          echo "Host shop-ledger.online" >> ~/.ssh/config
+          echo "  Port 65002" >> ~/.ssh/config
+          echo "  User u412659001" >> ~/.ssh/config
+          echo "  IdentityFile ~/.ssh/id_rsa" >> ~/.ssh/config
+          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
+          echo "  UserKnownHostsFile /dev/null" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
 
       - name: Deploy backend dist
         run: |
-          rsync -az --delete -e "ssh -p 65002 -i ~/.ssh/id_rsa" \
+          rsync -az --delete -e "ssh -p 65002 -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
             artifacts/api-server/dist/ \
             u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/artifacts/api-server/dist/
 
       - name: Deploy frontend dist
         run: |
-          rsync -az --delete -e "ssh -p 65002 -i ~/.ssh/id_rsa" \
+          rsync -az --delete -e "ssh -p 65002 -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
             artifacts/shop-ledger/dist/ \
             u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/public_html/
 
       - name: Deploy entry file
         run: |
-          rsync -az -e "ssh -p 65002 -i ~/.ssh/id_rsa" \
+          rsync -az -e "ssh -p 65002 -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
             index.js \
             u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/index.js
 
       - name: Restart server
         run: |
-          ssh -p 65002 -i ~/.ssh/id_rsa u412659001@shop-ledger.online \
+          ssh -p 65002 -i ~/.ssh/id_rsa \
+            -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            u412659001@shop-ledger.online \
             "kill \$(ps aux | grep lsnode | grep -v grep | awk '{print \$2}') 2>/dev/null; echo 'Server restarted'"
 # Auto-deploy enabled via GitHub Actions
