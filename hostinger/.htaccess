@@ -1,4 +1,4 @@
-PassengerNodejs /usr/local/bin/node
+PassengerNodejs /opt/alt/alt-nodejs22/root/usr/bin/node
 PassengerStartupFile index.js
 PassengerAppRoot /home/u412659001/domains/shop-ledger.online/nodejs
 PassengerAppType node
