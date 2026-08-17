@@ -68,5 +68,17 @@ jobs:
           ssh -p 65002 -i ~/.ssh/id_rsa \
             -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
             u412659001@shop-ledger.online \
-            "kill \$(ps aux | grep lsnode | grep -v grep | awk '{print \$2}') 2>/dev/null; echo 'Server restarted'"
+            "
+            APP_DIR=/home/u412659001/domains/shop-ledger.online/nodejs
+            # Touch restart file (LiteSpeed/Passenger style restart)
+            mkdir -p \$APP_DIR/tmp && touch \$APP_DIR/tmp/restart.txt
+            # Also send SIGUSR1 (graceful reload) to lsnode if running
+            PID=\$(ps aux | grep lsnode | grep -v grep | awk '{print \$1}' | head -1)
+            if [ -n \"\$PID\" ]; then
+              kill -USR1 \$PID 2>/dev/null && echo 'Sent graceful reload signal'
+            else
+              echo 'lsnode not found, LiteSpeed will start it on next request'
+            fi
+            echo 'Deploy complete'
+            "
 # Auto-deploy enabled via GitHub Actions
