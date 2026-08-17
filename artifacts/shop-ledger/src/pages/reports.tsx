@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   useGetEntriesReport,
   useGetProfitReport,
@@ -21,12 +21,15 @@ import {
   Calendar,
   Search,
   BarChart2,
+  TableIcon,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, getDaysInMonth, subDays, getWeek, startOfYear, startOfMonth, subMonths, addMonths, isSameMonth, endOfMonth } from "date-fns";
+import { format, getDaysInMonth, subDays, getWeek, startOfYear, startOfMonth, subMonths, addMonths, isSameMonth, endOfMonth, startOfWeek, endOfWeek, addWeeks, subWeeks } from "date-fns";
 import ReceiptModal, { type ReceiptData } from "@/components/receipt-modal";
 import {
   BarChart,
@@ -53,7 +56,14 @@ function formatShort(amount: number) {
 }
 
 export default function Reports() {
-  const [reportTab, setReportTab] = useState<"report" | "date" | "monthly-profit">("report");
+  const [reportTab, setReportTab] = useState<"report" | "date" | "monthly-profit" | "table">("report");
+  // Table tab state
+  const [tableMode, setTableMode] = useState<"daily" | "weekly" | "monthly" | "custom">("daily");
+  const [tableDate, setTableDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [tableWeekRef, setTableWeekRef] = useState(() => new Date());
+  const [tableMonthRef, setTableMonthRef] = useState(() => new Date());
+  const [tableCustomStart, setTableCustomStart] = useState(() => new Date().toISOString().split("T")[0]);
+  const [tableCustomEnd, setTableCustomEnd] = useState(() => new Date().toISOString().split("T")[0]);
   const [period, setPeriod] = useState<"monthly" | "yearly">("monthly");
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
@@ -107,6 +117,54 @@ export default function Reports() {
   );
 
   const currentMonthName = format(new Date(), "MMMM yyyy");
+
+  // Table tab — compute API params
+  const tableQueryParams = useMemo(() => {
+    if (tableMode === "daily") return { date: tableDate };
+    if (tableMode === "weekly") {
+      return {
+        start_date: format(startOfWeek(tableWeekRef, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+        end_date: format(endOfWeek(tableWeekRef, { weekStartsOn: 1 }), "yyyy-MM-dd"),
+      };
+    }
+    if (tableMode === "monthly") {
+      return {
+        start_date: format(startOfMonth(tableMonthRef), "yyyy-MM-dd"),
+        end_date: format(endOfMonth(tableMonthRef), "yyyy-MM-dd"),
+      };
+    }
+    return { start_date: tableCustomStart, end_date: tableCustomEnd };
+  }, [tableMode, tableDate, tableWeekRef, tableMonthRef, tableCustomStart, tableCustomEnd]);
+
+  const { data: tableEntries = [], isLoading: tableLoading } = useListEntries(
+    tableQueryParams as any,
+    { query: { queryKey: [...getListEntriesQueryKey(tableQueryParams as any), "table-tab"], enabled: reportTab === "table" } }
+  );
+
+  const tableSummary = useMemo(() => {
+    const totalIn = tableEntries.filter((e) => e.type === "cash_in").reduce((s, e) => s + e.amount, 0);
+    const totalOut = tableEntries.filter((e) => e.type === "cash_out").reduce((s, e) => s + e.amount, 0);
+    const cashIn = tableEntries.filter((e) => e.type === "cash_in" && e.paymentMethod === "cash").reduce((s, e) => s + e.amount, 0);
+    const digitalIn = tableEntries.filter((e) => e.type === "cash_in" && e.paymentMethod === "digital").reduce((s, e) => s + e.amount, 0);
+    const totalProfit = tableEntries.reduce((s, e) => s + (e.profit ?? 0), 0);
+    return { totalIn, totalOut, net: totalIn - totalOut, cashIn, digitalIn, totalProfit, count: tableEntries.length };
+  }, [tableEntries]);
+
+  const tableSorted = useMemo(
+    () => [...tableEntries].sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime()),
+    [tableEntries]
+  );
+
+  const tablePeriodLabel = useMemo(() => {
+    if (tableMode === "daily") return format(new Date(tableDate + "T00:00:00"), "EEEE, MMMM d, yyyy");
+    if (tableMode === "weekly") {
+      const ws = startOfWeek(tableWeekRef, { weekStartsOn: 1 });
+      const we = endOfWeek(tableWeekRef, { weekStartsOn: 1 });
+      return `${format(ws, "MMM d")} – ${format(we, "MMM d, yyyy")}`;
+    }
+    if (tableMode === "monthly") return format(tableMonthRef, "MMMM yyyy");
+    return `${tableCustomStart} to ${tableCustomEnd}`;
+  }, [tableMode, tableDate, tableWeekRef, tableMonthRef, tableCustomStart, tableCustomEnd]);
 
   // ── Chart data based on selected filter ──
   const chartData = (() => {
@@ -333,7 +391,7 @@ export default function Reports() {
 
       <div className="flex-1 overflow-auto p-4">
         <Tabs value={reportTab} onValueChange={(v) => setReportTab(v as typeof reportTab)}>
-          <TabsList className="w-full mb-4 grid grid-cols-3">
+          <TabsList className="w-full mb-4 grid grid-cols-4">
             <TabsTrigger value="report" className="text-xs">
               <Calendar className="h-3 w-3 mr-1" />
               Report
@@ -345,6 +403,10 @@ export default function Reports() {
             <TabsTrigger value="monthly-profit" className="text-xs">
               <BarChart2 className="h-3 w-3 mr-1" />
               Profit
+            </TabsTrigger>
+            <TabsTrigger value="table" className="text-xs">
+              <TableIcon className="h-3 w-3 mr-1" />
+              Table
             </TabsTrigger>
           </TabsList>
 
@@ -850,6 +912,196 @@ export default function Reports() {
                 ))}
               </div>
             )}
+          </TabsContent>
+          {/* ── Table Tab ── */}
+          <TabsContent value="table" className="mt-0 space-y-4">
+            {/* Period label */}
+            <p className="text-xs text-muted-foreground font-medium">{tablePeriodLabel}</p>
+
+            {/* Mode selector */}
+            <div className="grid grid-cols-4 gap-1 bg-muted rounded-xl p-1">
+              {(["daily", "weekly", "monthly", "custom"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setTableMode(m)}
+                  className={`rounded-lg py-1.5 text-xs font-semibold capitalize transition-colors ${
+                    tableMode === m ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+
+            {/* Date controls */}
+            {tableMode === "daily" && (
+              <Input
+                type="date"
+                value={tableDate}
+                max={new Date().toISOString().split("T")[0]}
+                onChange={(e) => setTableDate(e.target.value)}
+                className="h-10 text-sm font-medium"
+              />
+            )}
+            {tableMode === "weekly" && (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0"
+                  onClick={() => setTableWeekRef((d) => subWeeks(d, 1))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex-1 text-center">
+                  <p className="text-sm font-semibold">
+                    {format(startOfWeek(tableWeekRef, { weekStartsOn: 1 }), "MMM d")} –{" "}
+                    {format(endOfWeek(tableWeekRef, { weekStartsOn: 1 }), "MMM d, yyyy")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Week {format(tableWeekRef, "w")} · {format(tableWeekRef, "yyyy")}</p>
+                </div>
+                <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0"
+                  disabled={endOfWeek(tableWeekRef, { weekStartsOn: 1 }) >= new Date()}
+                  onClick={() => setTableWeekRef((d) => addWeeks(d, 1))}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            {tableMode === "monthly" && (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0"
+                  onClick={() => setTableMonthRef((d) => subMonths(d, 1))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex-1 text-center">
+                  <p className="text-sm font-semibold">{format(tableMonthRef, "MMMM yyyy")}</p>
+                </div>
+                <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0"
+                  disabled={startOfMonth(tableMonthRef) >= startOfMonth(new Date())}
+                  onClick={() => setTableMonthRef((d) => addMonths(d, 1))}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            {tableMode === "custom" && (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-muted-foreground font-medium block mb-1">From</label>
+                  <Input type="date" value={tableCustomStart} max={tableCustomEnd}
+                    onChange={(e) => setTableCustomStart(e.target.value)} className="h-10 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground font-medium block mb-1">To</label>
+                  <Input type="date" value={tableCustomEnd} max={new Date().toISOString().split("T")[0]} min={tableCustomStart}
+                    onChange={(e) => setTableCustomEnd(e.target.value)} className="h-10 text-sm" />
+                </div>
+              </div>
+            )}
+
+            {/* Summary cards */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-green-50 border border-green-100 rounded-xl p-3">
+                <p className="text-xs text-green-700 font-medium">Total In</p>
+                <p className="text-base font-bold text-green-700">{formatCurrency(tableSummary.totalIn)}</p>
+                <p className="text-[10px] text-green-600 mt-0.5">Cash {formatCurrency(tableSummary.cashIn)} · Digital {formatCurrency(tableSummary.digitalIn)}</p>
+              </div>
+              <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+                <p className="text-xs text-red-700 font-medium">Total Out</p>
+                <p className="text-base font-bold text-red-700">{formatCurrency(tableSummary.totalOut)}</p>
+              </div>
+              <div className={`border rounded-xl p-3 ${tableSummary.net >= 0 ? "bg-blue-50 border-blue-100" : "bg-orange-50 border-orange-100"}`}>
+                <p className={`text-xs font-medium ${tableSummary.net >= 0 ? "text-blue-700" : "text-orange-700"}`}>Net</p>
+                <p className={`text-base font-bold ${tableSummary.net >= 0 ? "text-blue-700" : "text-orange-700"}`}>{formatCurrency(tableSummary.net)}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                  <p className="text-xs text-amber-700 font-medium">Profit</p>
+                  <p className="text-base font-bold text-amber-700">{formatCurrency(tableSummary.totalProfit)}</p>
+                </div>
+                <div className="bg-card border rounded-xl p-3">
+                  <p className="text-xs text-muted-foreground font-medium">Count</p>
+                  <p className="text-base font-bold">{tableSummary.count}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">All Entries</p>
+              {tableLoading ? (
+                <div className="space-y-2">
+                  {[1,2,3,4,5].map((i) => <div key={i} className="h-12 bg-card border rounded-xl animate-pulse" />)}
+                </div>
+              ) : tableSorted.length === 0 ? (
+                <div className="text-center py-14 text-muted-foreground">
+                  <TableIcon className="h-10 w-10 mx-auto mb-3 opacity-25" />
+                  <p className="font-medium">No entries for this period</p>
+                  <p className="text-xs mt-1">Try a different date range</p>
+                </div>
+              ) : (
+                <div className="rounded-xl border overflow-hidden bg-card">
+                  {/* Header */}
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-3 py-2 bg-muted/60 border-b text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    <span>Description / Date</span>
+                    <span className="text-center">Method</span>
+                    <span className="text-center">Type</span>
+                    <span className="text-right">Amount</span>
+                  </div>
+                  {/* Rows */}
+                  <div className="divide-y">
+                    {tableSorted.map((entry, idx) => (
+                      <div key={entry.id}
+                        className={`grid grid-cols-[1fr_auto_auto_auto] gap-x-3 items-center px-3 py-2.5 ${idx % 2 === 1 ? "bg-muted/20" : ""}`}>
+                        <div className="min-w-0">
+                          <p className="font-medium text-foreground text-xs truncate leading-tight">
+                            {entry.description || (entry.type === "cash_in" ? "Cash In" : "Cash Out")}
+                          </p>
+                          <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                            <span className="text-[10px] text-muted-foreground">
+                              {format(new Date(entry.entryDate), tableMode === "daily" ? "h:mm a" : "MMM d, h:mm a")}
+                            </span>
+                            {entry.isCredit && (
+                              <Badge className="text-[9px] px-1 py-0 h-3.5 bg-amber-100 text-amber-700 border-0 leading-none">Credit</Badge>
+                            )}
+                            {(entry as any).customerName && (
+                              <span className="text-[10px] text-muted-foreground truncate">· {(entry as any).customerName}</span>
+                            )}
+                            {entry.profit != null && entry.profit > 0 && (
+                              <span className="text-[9px] font-semibold text-amber-600 bg-amber-50 px-1 rounded-full">+{formatCurrency(entry.profit)}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex-shrink-0">
+                          {entry.paymentMethod === "digital"
+                            ? <Badge className="text-[9px] px-1.5 py-0 h-5 bg-blue-100 text-blue-700 border-0">Digital</Badge>
+                            : <Badge className="text-[9px] px-1.5 py-0 h-5 bg-gray-100 text-gray-600 border-0">Cash</Badge>}
+                        </div>
+                        <div className="flex-shrink-0">
+                          {entry.type === "cash_in"
+                            ? <div className="h-6 w-6 rounded-full bg-green-100 flex items-center justify-center"><TrendingUp className="h-3 w-3 text-green-600" /></div>
+                            : <div className="h-6 w-6 rounded-full bg-red-100 flex items-center justify-center"><TrendingDown className="h-3 w-3 text-red-600" /></div>}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className={`text-xs font-bold ${entry.type === "cash_in" ? "text-green-600" : "text-red-600"}`}>
+                            {entry.type === "cash_in" ? "+" : "-"}{formatCurrency(entry.amount)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Footer */}
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 px-3 py-2.5 bg-muted/40 border-t">
+                    <div>
+                      <p className="text-xs font-bold text-foreground">{tableSummary.count} entries</p>
+                      <p className="text-[10px] text-muted-foreground">In: {formatCurrency(tableSummary.totalIn)} · Out: {formatCurrency(tableSummary.totalOut)}</p>
+                    </div>
+                    <div /><div />
+                    <div className="text-right">
+                      <p className={`text-xs font-bold ${tableSummary.net >= 0 ? "text-green-600" : "text-red-600"}`}>
+                        {tableSummary.net >= 0 ? "+" : ""}{formatCurrency(tableSummary.net)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">net</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
