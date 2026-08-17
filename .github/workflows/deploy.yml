@@ -25,6 +25,8 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
+        env:
+          npm_config_ignore_scripts: "false"
 
       - name: Build backend
         run: pnpm --filter @workspace/api-server run build
