@@ -344,7 +344,10 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-2">
-            {[...todayEntries].sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime()).map((entry) => (
+            {[...todayEntries].sort((a, b) => {
+                const dt = new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime();
+                return dt !== 0 ? dt : b.id - a.id;
+              }).map((entry) => (
               <div
                 key={entry.id}
                 className="bg-card border rounded-xl p-3 flex items-center gap-3"
