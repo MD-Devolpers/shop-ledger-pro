@@ -1,5 +1,9 @@
 # LedgerEntries — ledgerentries.com
 
+## User Preferences
+
+- **Chat language**: English only
+
 ## Overview
 
 A full-stack daily shop accounting web application for small businesses and shopkeepers. Track cash in/out, digital payments, credits, and profit. SEO-optimized, mobile-first, with email verification and an admin panel.
