@@ -12,6 +12,7 @@ function fmt(m: typeof mobilePurchasesTable.$inferSelect) {
     sellerName: m.sellerName,
     sellerPhone: m.sellerPhone ?? null,
     sellerAddress: m.sellerAddress ?? null,
+    sellerCnic: (m as any).sellerCnic ?? null,
     imei: m.imei ?? null,
     imei2: (m as any).imei2 ?? null,
     mobileModel: m.mobileModel,
@@ -79,7 +80,7 @@ router.get("/inventory/mobile-purchases/:id", requireAuth, async (req, res): Pro
 router.post("/inventory/mobile-purchases", requireAuth, async (req, res): Promise<void> => {
   const userId = req.session!.userId!;
   const {
-    sellerName, sellerPhone, sellerAddress,
+    sellerName, sellerPhone, sellerAddress, sellerCnic,
     imei, mobileModel, company, color, storageCapacity, condition,
     purchasePrice, salePrice, notes, purchaseDate,
   } = req.body;
@@ -100,6 +101,7 @@ router.post("/inventory/mobile-purchases", requireAuth, async (req, res): Promis
       sellerName,
       sellerPhone: sellerPhone || null,
       sellerAddress: sellerAddress || null,
+      sellerCnic: sellerCnic || null,
       imei: imei || null,
       ...(imei2 ? { imei2: imei2 || null } : {}),
       mobileModel,
@@ -144,7 +146,7 @@ router.put("/inventory/mobile-purchases/:id", requireAuth, async (req, res): Pro
   const userId = req.session!.userId!;
   const id = parseInt(req.params.id);
   const {
-    sellerName, sellerPhone, sellerAddress,
+    sellerName, sellerPhone, sellerAddress, sellerCnic,
     imei, mobileModel, company, color, storageCapacity, condition,
     purchasePrice, salePrice, notes, purchaseDate,
   } = req.body;
@@ -169,6 +171,7 @@ router.put("/inventory/mobile-purchases/:id", requireAuth, async (req, res): Pro
   if (sellerName !== undefined) update.sellerName = sellerName;
   if (sellerPhone !== undefined) update.sellerPhone = sellerPhone || null;
   if (sellerAddress !== undefined) update.sellerAddress = sellerAddress || null;
+  if (sellerCnic !== undefined) update.sellerCnic = sellerCnic || null;
   if (imei !== undefined) update.imei = imei || null;
   if (imei2 !== undefined) update.imei2 = imei2 || null;
   if (mobileModel !== undefined) update.mobileModel = mobileModel;

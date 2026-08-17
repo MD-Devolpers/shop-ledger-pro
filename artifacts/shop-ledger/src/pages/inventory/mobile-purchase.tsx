@@ -169,7 +169,7 @@ function MobileFormDialog({ open, onClose, onSubmit, isPending, initial }: {
   initial?: MobilePurchase | null;
 }) {
   const [form, setForm] = useState({
-    sellerName: "", sellerPhone: "", sellerAddress: "",
+    sellerName: "", sellerPhone: "", sellerAddress: "", sellerCnic: "",
     imei: "", imei2: "", mobileModel: "", company: "", color: "", storageCapacity: "",
     condition: "used" as "new" | "used" | "refurbished",
     purchaseSource: "company" as "company" | "person",
@@ -186,6 +186,7 @@ function MobileFormDialog({ open, onClose, onSubmit, isPending, initial }: {
           sellerName: initial.sellerName,
           sellerPhone: initial.sellerPhone ?? "",
           sellerAddress: initial.sellerAddress ?? "",
+          sellerCnic: (initial as any).sellerCnic ?? "",
           imei: initial.imei ?? "",
           imei2: initial.imei2 ?? "",
           mobileModel: initial.mobileModel,
@@ -200,7 +201,7 @@ function MobileFormDialog({ open, onClose, onSubmit, isPending, initial }: {
           purchaseDate: format(new Date(initial.purchaseDate), "yyyy-MM-dd"),
         });
       } else {
-        setForm({ sellerName: "", sellerPhone: "", sellerAddress: "", imei: "", imei2: "", mobileModel: "", company: "", color: "", storageCapacity: "", condition: "used", purchaseSource: "company", purchasePrice: "", salePrice: "", notes: "", purchaseDate: format(new Date(), "yyyy-MM-dd") });
+        setForm({ sellerName: "", sellerPhone: "", sellerAddress: "", sellerCnic: "", imei: "", imei2: "", mobileModel: "", company: "", color: "", storageCapacity: "", condition: "used", purchaseSource: "company", purchasePrice: "", salePrice: "", notes: "", purchaseDate: format(new Date(), "yyyy-MM-dd") });
       }
     }
   }, [open, initial]);
@@ -218,6 +219,7 @@ function MobileFormDialog({ open, onClose, onSubmit, isPending, initial }: {
       sellerName: form.sellerName.trim(),
       sellerPhone: form.sellerPhone || null,
       sellerAddress: form.sellerAddress || null,
+      sellerCnic: form.sellerCnic || null,
       imei: form.imei || null,
       imei2: form.imei2 || null,
       mobileModel: form.mobileModel.trim(),
@@ -264,9 +266,13 @@ function MobileFormDialog({ open, onClose, onSubmit, isPending, initial }: {
                 <label className="text-xs font-medium">Purchase Date</label>
                 <Input type="date" className="mt-1 h-9" value={form.purchaseDate} onChange={e => set("purchaseDate", e.target.value)} />
               </div>
-              <div className="col-span-2">
+              <div>
                 <label className="text-xs font-medium flex items-center gap-1"><MapPin className="h-3 w-3" />Address</label>
                 <Input className="mt-1 h-9" placeholder="Home / Shop address..." value={form.sellerAddress} onChange={e => set("sellerAddress", e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium">CNIC Number</label>
+                <Input className="mt-1 h-9 font-mono" placeholder="12345-1234567-1" value={form.sellerCnic} onChange={e => set("sellerCnic", e.target.value)} maxLength={15} />
               </div>
             </div>
           </div>

@@ -284,6 +284,7 @@ export const mobilePurchasesTable = pgTable("mobile_purchases", {
   sellerName: text("seller_name").notNull(),
   sellerPhone: text("seller_phone"),
   sellerAddress: text("seller_address"),
+  sellerCnic: text("seller_cnic"),
   // Mobile details
   imei: text("imei"),    // IMEI 1
   imei2: text("imei2"),  // IMEI 2 (dual SIM)
