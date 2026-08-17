@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, ilike, or, isNull, desc, gte, lte, sql, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { db, purchaseBillsTable, purchaseBillItemsTable, productsTable, companiesTable, productPriceHistoryTable } from "@workspace/db";
+import { db, purchaseBillsTable, purchaseBillItemsTable, productsTable, companiesTable, productPriceHistoryTable, creditsTable } from "@workspace/db";
 
 const productCompanyAlias = alias(companiesTable, "product_company");
 import { requireAuth } from "../middlewares/auth";
@@ -372,6 +372,20 @@ router.post("/inventory/purchase-bills/bulk-create", requireAuth, async (req, re
       saleRate: ri.saleRate.toString(),
       discount: "0",
       totalAmount: ri.lineTotal.toString(),
+    });
+  }
+
+  // Auto-create supplier credit when purchased on credit
+  if (isCredit === true || isCredit === "true") {
+    await db.insert(creditsTable).values({
+      userId,
+      customerName: resolvedSupplier,
+      phone: null,
+      amount: totalAmount.toString(),
+      description: `Purchase Bill #${bill.billNumber} — ${resolvedSupplier} (${new Date(bill.billDate).toLocaleDateString("en-PK")})`,
+      type: "received",
+      status: "pending",
+      dueDate: null,
     });
   }
 
