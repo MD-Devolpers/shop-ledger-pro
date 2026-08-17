@@ -78880,6 +78880,7 @@ var mobilePurchasesTable = pgTable("mobile_purchases", {
   sellerName: text("seller_name").notNull(),
   sellerPhone: text("seller_phone"),
   sellerAddress: text("seller_address"),
+  sellerCnic: text("seller_cnic"),
   // Mobile details
   imei: text("imei"),
   // IMEI 1
@@ -81191,6 +81192,18 @@ router13.post("/inventory/purchase-bills/bulk-create", requireAuth, async (req, 
       totalAmount: ri.lineTotal.toString()
     });
   }
+  if (isCredit === true || isCredit === "true") {
+    await db.insert(creditsTable).values({
+      userId,
+      customerName: resolvedSupplier,
+      phone: null,
+      amount: totalAmount.toString(),
+      description: `Purchase Bill #${bill.billNumber} \u2014 ${resolvedSupplier} (${new Date(bill.billDate).toLocaleDateString("en-PK")})`,
+      type: "received",
+      status: "pending",
+      dueDate: null
+    });
+  }
   res.status(201).json({
     ...formatBill(bill),
     itemCount: resolvedItems.length,
@@ -82485,6 +82498,7 @@ function fmt(m) {
     sellerName: m.sellerName,
     sellerPhone: m.sellerPhone ?? null,
     sellerAddress: m.sellerAddress ?? null,
+    sellerCnic: m.sellerCnic ?? null,
     imei: m.imei ?? null,
     imei2: m.imei2 ?? null,
     mobileModel: m.mobileModel,
@@ -82542,6 +82556,7 @@ router23.post("/inventory/mobile-purchases", requireAuth, async (req, res) => {
     sellerName,
     sellerPhone,
     sellerAddress,
+    sellerCnic,
     imei,
     mobileModel,
     company,
@@ -82567,6 +82582,7 @@ router23.post("/inventory/mobile-purchases", requireAuth, async (req, res) => {
       sellerName,
       sellerPhone: sellerPhone || null,
       sellerAddress: sellerAddress || null,
+      sellerCnic: sellerCnic || null,
       imei: imei || null,
       ...imei2 ? { imei2: imei2 || null } : {},
       mobileModel,
@@ -82605,6 +82621,7 @@ router23.put("/inventory/mobile-purchases/:id", requireAuth, async (req, res) =>
     sellerName,
     sellerPhone,
     sellerAddress,
+    sellerCnic,
     imei,
     mobileModel,
     company,
@@ -82635,6 +82652,7 @@ router23.put("/inventory/mobile-purchases/:id", requireAuth, async (req, res) =>
   if (sellerName !== void 0) update.sellerName = sellerName;
   if (sellerPhone !== void 0) update.sellerPhone = sellerPhone || null;
   if (sellerAddress !== void 0) update.sellerAddress = sellerAddress || null;
+  if (sellerCnic !== void 0) update.sellerCnic = sellerCnic || null;
   if (imei !== void 0) update.imei = imei || null;
   if (imei2 !== void 0) update.imei2 = imei2 || null;
   if (mobileModel !== void 0) update.mobileModel = mobileModel;
