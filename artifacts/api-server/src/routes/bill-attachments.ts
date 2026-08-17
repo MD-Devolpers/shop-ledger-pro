@@ -3,7 +3,7 @@ import multer from "multer";
 import { eq, and } from "drizzle-orm";
 import { db, purchaseBillsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
-import { objectStorageClient } from "../lib/objectStorage";
+import { createRequire } from "module";
 
 const router: IRouter = Router();
 
@@ -17,10 +17,39 @@ const upload = multer({
   },
 });
 
-function getBucket() {
+const REPLIT_SIDECAR_ENDPOINT = 'http://127.0.0.1:1106';
+let _storageClient: any = null;
+
+async function getStorageClient() {
+  if (_storageClient) return _storageClient;
+  try {
+    const _require = createRequire(import.meta.url);
+    const { Storage } = _require('@google-cloud/storage');
+    _storageClient = new Storage({
+      credentials: {
+        audience: 'replit',
+        subject_token_type: 'access_token',
+        token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
+        type: 'external_account',
+        credential_source: {
+          url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
+          format: { type: 'json', subject_token_field_name: 'access_token' },
+        },
+        universe_domain: 'googleapis.com',
+      },
+      projectId: '',
+    });
+    return _storageClient;
+  } catch {
+    throw new Error('Object storage is not available on this server.');
+  }
+}
+
+async function getBucket() {
   const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
   if (!bucketId) throw new Error("DEFAULT_OBJECT_STORAGE_BUCKET_ID not set");
-  return objectStorageClient.bucket(bucketId);
+  const client = await getStorageClient();
+  return client.bucket(bucketId);
 }
 
 // Upload file attachment to a purchase bill
@@ -37,7 +66,7 @@ router.post("/inventory/purchase-bills/:id/attach", requireAuth, upload.single("
   if (!bill) { res.status(404).json({ error: "Bill not found" }); return; }
 
   try {
-    const bucket = getBucket();
+    const bucket = await getBucket();
 
     // Delete old attachment if exists
     if (bill.attachmentUrl) {
@@ -78,7 +107,7 @@ router.get("/inventory/purchase-bills/:id/attachment", requireAuth, async (req, 
   }
 
   try {
-    const bucket = getBucket();
+    const bucket = await getBucket();
     const file = bucket.file(bill.attachmentUrl);
     const [metadata] = await file.getMetadata();
     const contentType = (metadata as any).contentType ?? "application/octet-stream";
@@ -104,7 +133,7 @@ router.delete("/inventory/purchase-bills/:id/attach", requireAuth, async (req, r
   if (!bill) { res.status(404).json({ error: "Bill not found" }); return; }
 
   if (bill.attachmentUrl) {
-    try { await getBucket().file(bill.attachmentUrl).delete(); } catch {}
+    try { await (await getBucket()).file(bill.attachmentUrl).delete(); } catch {}
   }
 
   await db.update(purchaseBillsTable)
