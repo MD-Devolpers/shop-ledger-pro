@@ -102,9 +102,24 @@ jobs:
             u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/.env
           echo "Deployed .env successfully"
 
-      - name: Find node binary path on Hostinger
+      - name: Diagnose Hostinger Node.js environment
         run: |
-          ssh hostinger "which node 2>/dev/null || find /usr/local -name 'node' -type f 2>/dev/null | head -5 || echo 'node not found in standard paths'"
+          ssh hostinger '
+            echo "=== which node ==="
+            which node 2>/dev/null || echo "not in PATH"
+            echo "=== find node binaries ==="
+            find /usr /opt /home/u412659001 -name "node" -type f 2>/dev/null | grep -v node_modules | head -10 || true
+            echo "=== nvm check ==="
+            ls ~/.nvm/versions/node/ 2>/dev/null || echo "no nvm"
+            echo "=== lsnode check ==="
+            ls /usr/local/lsws/lsnode*/bin/ 2>/dev/null || echo "no lsnode"
+            echo "=== .env contents (keys only) ==="
+            grep -oP "^[^=]+" /home/u412659001/domains/shop-ledger.online/nodejs/.env 2>/dev/null || echo "no .env"
+            echo "=== passenger log ==="
+            tail -20 /home/u412659001/domains/shop-ledger.online/logs/passenger.*.log 2>/dev/null | head -30 || echo "no passenger log"
+            echo "=== stderr log ==="
+            tail -20 /home/u412659001/domains/shop-ledger.online/logs/stderr.log 2>/dev/null || echo "no stderr log"
+          '
 
       - name: Restart server (Hostinger touch mechanism)
         run: |
