@@ -1,0 +1,2 @@
+- [Google Cloud Storage on Hostinger](gcs-hostinger.md) — @google-cloud/storage must be in esbuild externals + use dynamic import(); never createRequire or static import
+- [Hostinger deploy restart](hostinger-restart.md) — kill/touch-restart unreliable; user must manually copy zip + pkill after each deploy until workflow restart is solved

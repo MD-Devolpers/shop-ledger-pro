@@ -1,0 +1,37 @@
+  prefix="content: http://purl.org/rss/1.0/modules/content/ dc: http://purl.org/dc/terms/ foaf: http://xmlns.com/[u412659001@my-kul-web2101 shop-updtail -30 /home/u412659001/domains/shop-ledger.online/nodejs/stderr.logrr.log
+
+echo "=== Process status ==="
+ps aux | grep -E "lsnode|node" | grep -v grep
+    at packageResolve (node:internal/modules/esm/resolve:767:81)
+    at moduleResolve (node:internal/modules/esm/resolve:853:18)
+    at defaultResolve (node:internal/modules/esm/resolve:983:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+
+Node.js v22.18.0
+node:internal/modules/package_json_reader:255
+  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+        ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@google-cloud/storage' imported from /home/u412659001/domains/shop-ledger.online/nodejs/artifacts/api-server/dist/index.mjs
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:255:9)
+    at packageResolve (node:internal/modules/esm/resolve:767:81)
+    at moduleResolve (node:internal/modules/esm/resolve:853:18)
+    at defaultResolve (node:internal/modules/esm/resolve:983:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:783:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:707:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:690:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:307:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:183:49) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+
+Node.js v22.18.0
+=== Process status ===
+u412659+ 4184994  0.2  0.0 4556260 18484 ?       Sl   10:39   0:00 /home/u412659001/domains/noirnode.com/nodejs/.next/node_modules/.prisma/client/query-engine-debian-openssl-1.1.x --enable-raw-queries --enable-metrics --enable-open-telemetry --port 0 --engine-protocol json
+[u412659001@my-kul-web2101 shop-update]$ 
