@@ -18,9 +18,8 @@ declare module "express" {
 
 const app: Express = express();
 
-// Trust the first proxy (Render, Railway, etc.) so req.secure works correctly
-// and cookie-session saves the session over HTTPS connections
-app.set("trust proxy", 1);
+// Trust all proxies (LiteSpeed, Nginx, Render, Railway, etc.)
+app.set("trust proxy", true);
 
 // ── Security headers (helmet) ──────────────────────────────────────────────
 app.use(
@@ -67,7 +66,7 @@ app.use(
     secret: process.env.SESSION_SECRET || "ledgerentries-change-in-production",
     maxAge: 30 * 24 * 60 * 60 * 1000,
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.COOKIE_SECURE === "true",
     sameSite: "lax",
   })
 );

@@ -111298,7 +111298,7 @@ var logger = (0, import_pino.default)({
 
 // src/app.ts
 var app = (0, import_express26.default)();
-app.set("trust proxy", 1);
+app.set("trust proxy", true);
 app.use(
   helmet({
     contentSecurityPolicy: false,
@@ -111334,7 +111334,7 @@ app.use(
     secret: process.env.SESSION_SECRET || "ledgerentries-change-in-production",
     maxAge: 30 * 24 * 60 * 60 * 1e3,
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.COOKIE_SECURE === "true",
     sameSite: "lax"
   })
 );
