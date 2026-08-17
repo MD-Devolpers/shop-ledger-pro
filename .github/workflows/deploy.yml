@@ -66,6 +66,12 @@ jobs:
             artifacts/shop-ledger/dist/public/ \
             u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/public_html/
 
+      - name: Deploy .htaccess (Passenger config for Node.js routing)
+        run: |
+          rsync -az -e "ssh -p 65002 -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+            hostinger/.htaccess \
+            u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/public_html/.htaccess
+
       - name: Deploy entry file
         run: |
           rsync -az -e "ssh -p 65002 -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
