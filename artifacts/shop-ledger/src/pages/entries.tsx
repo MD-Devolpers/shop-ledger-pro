@@ -299,7 +299,10 @@ export default function Entries() {
                       </tr>
                     </thead>
                     <tbody>
-                      {allEntries.map((entry, idx) => (
+                      {[...allEntries].sort((a, b) => {
+                          const dt = new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime();
+                          return dt !== 0 ? dt : b.id - a.id;
+                        }).map((entry, idx) => (
                         <EntryRow
                           key={entry.id}
                           entry={entry}
