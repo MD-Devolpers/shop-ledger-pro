@@ -78,6 +78,19 @@ jobs:
             index.js \
             u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/index.js
 
+      - name: Deploy .env to Hostinger
+        run: |
+          ssh hostinger "cat > /home/u412659001/domains/shop-ledger.online/nodejs/.env <<'ENVEOF'
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+          GMAIL_USER=${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD=${{ secrets.GMAIL_APP_PASSWORD }}
+          RESTART_TOKEN=${{ secrets.RESTART_TOKEN }}
+          NODE_ENV=production
+          COOKIE_SECURE=true
+          ENVEOF"
+          echo "Deployed .env"
+
       - name: Restart server (Hostinger touch mechanism)
         run: |
           ssh hostinger "mkdir -p /home/u412659001/domains/shop-ledger.online/nodejs/tmp && \
