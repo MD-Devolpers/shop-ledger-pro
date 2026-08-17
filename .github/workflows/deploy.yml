@@ -61,3 +61,4 @@ jobs:
         run: |
           ssh -p 65002 -i ~/.ssh/id_rsa u412659001@shop-ledger.online \
             "kill \$(ps aux | grep lsnode | grep -v grep | awk '{print \$2}') 2>/dev/null; echo 'Server restarted'"
+# Auto-deploy enabled via GitHub Actions
