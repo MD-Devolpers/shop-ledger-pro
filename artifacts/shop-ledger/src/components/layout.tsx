@@ -53,7 +53,7 @@ const moreItems = [
   { icon: Star, label: "Quick Products", href: "/inventory/quick-products" },
   { icon: FileBarChart, label: "Prod. Reports", href: "/inventory/product-reports" },
   { icon: PackageX, label: "Replacements", href: "/inventory/company-replacements" },
-  { icon: Banknote, label: "Supplier Credit", href: "/inventory/supplier-balance" },
+
   { icon: ShieldCheck, label: "Warranty Check", href: "/inventory/warranty-check" },
   { icon: Cpu, label: "Mobile Purchase", href: "/inventory/mobile-purchase" },
   { icon: Trash2, label: "Recycle Bin", href: "/recycle-bin" },
@@ -79,7 +79,7 @@ const inventoryNavItems = [
   { icon: Star, label: "Quick Products", href: "/inventory/quick-products" },
   { icon: FileBarChart, label: "Product Reports", href: "/inventory/product-reports" },
   { icon: PackageX, label: "Replacements", href: "/inventory/company-replacements" },
-  { icon: Banknote, label: "Supplier Credit", href: "/inventory/supplier-balance" },
+
   { icon: Cpu, label: "Mobile Purchase", href: "/inventory/mobile-purchase" },
   { icon: Building2, label: "Masters", href: "/inventory/masters" },
   { icon: Store, label: "Bill Settings", href: "/inventory/bill-settings" },
