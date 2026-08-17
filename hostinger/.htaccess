@@ -1,3 +1,4 @@
+PassengerNodejs /usr/local/bin/node
 PassengerStartupFile index.js
 PassengerAppRoot /home/u412659001/domains/shop-ledger.online/nodejs
 PassengerAppType node
