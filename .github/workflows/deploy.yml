@@ -1,0 +1,63 @@
+name: Build & Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build backend
+        run: pnpm --filter @workspace/api-server run build
+
+      - name: Build frontend
+        run: pnpm --filter @workspace/shop-ledger run build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HOSTINGER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p 65002 shop-ledger.online >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy backend dist
+        run: |
+          rsync -az --delete -e "ssh -p 65002 -i ~/.ssh/id_rsa" \
+            artifacts/api-server/dist/ \
+            u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/artifacts/api-server/dist/
+
+      - name: Deploy frontend dist
+        run: |
+          rsync -az --delete -e "ssh -p 65002 -i ~/.ssh/id_rsa" \
+            artifacts/shop-ledger/dist/ \
+            u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/public_html/
+
+      - name: Deploy entry file
+        run: |
+          rsync -az -e "ssh -p 65002 -i ~/.ssh/id_rsa" \
+            index.js \
+            u412659001@shop-ledger.online:/home/u412659001/domains/shop-ledger.online/nodejs/index.js
+
+      - name: Restart server
+        run: |
+          ssh -p 65002 -i ~/.ssh/id_rsa u412659001@shop-ledger.online \
+            "kill \$(ps aux | grep lsnode | grep -v grep | awk '{print \$2}') 2>/dev/null; echo 'Server restarted'"
