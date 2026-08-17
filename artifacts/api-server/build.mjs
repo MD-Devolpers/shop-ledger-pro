@@ -63,6 +63,8 @@ async function buildAll() {
       "@aws-sdk/*",
       "@azure/*",
       "@opentelemetry/*",
+      "@google-cloud/storage",
+      "@google-cloud/*",
       "googleapis",
       "firebase-admin",
       "@parcel/watcher",

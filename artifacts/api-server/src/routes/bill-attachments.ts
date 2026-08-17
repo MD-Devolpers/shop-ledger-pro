@@ -3,7 +3,6 @@ import multer from "multer";
 import { eq, and } from "drizzle-orm";
 import { db, purchaseBillsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
-import { createRequire } from "module";
 
 const router: IRouter = Router();
 
@@ -18,14 +17,13 @@ const upload = multer({
 });
 
 const REPLIT_SIDECAR_ENDPOINT = 'http://127.0.0.1:1106';
-let _storageClient: any = null;
 
-async function getStorageClient() {
-  if (_storageClient) return _storageClient;
+async function getBucket() {
+  const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
+  if (!bucketId) throw new Error("DEFAULT_OBJECT_STORAGE_BUCKET_ID not set");
   try {
-    const _require = createRequire(import.meta.url);
-    const { Storage } = _require('@google-cloud/storage');
-    _storageClient = new Storage({
+    const { Storage } = await import('@google-cloud/storage');
+    const client = new Storage({
       credentials: {
         audience: 'replit',
         subject_token_type: 'access_token',
@@ -39,17 +37,10 @@ async function getStorageClient() {
       },
       projectId: '',
     });
-    return _storageClient;
+    return client.bucket(bucketId);
   } catch {
     throw new Error('Object storage is not available on this server.');
   }
-}
-
-async function getBucket() {
-  const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
-  if (!bucketId) throw new Error("DEFAULT_OBJECT_STORAGE_BUCKET_ID not set");
-  const client = await getStorageClient();
-  return client.bucket(bucketId);
 }
 
 // Upload file attachment to a purchase bill
@@ -68,7 +59,6 @@ router.post("/inventory/purchase-bills/:id/attach", requireAuth, upload.single("
   try {
     const bucket = await getBucket();
 
-    // Delete old attachment if exists
     if (bill.attachmentUrl) {
       try { await bucket.file(bill.attachmentUrl).delete(); } catch {}
     }
@@ -85,15 +75,14 @@ router.post("/inventory/purchase-bills/:id/attach", requireAuth, upload.single("
       .set({ attachmentUrl: objectPath })
       .where(eq(purchaseBillsTable.id, billId));
 
-    const originalName = req.file.originalname;
-    res.json({ attachmentUrl: objectPath, originalName });
+    res.json({ attachmentUrl: objectPath, originalName: req.file.originalname });
   } catch (err: any) {
     console.error("File upload failed:", err);
     res.status(500).json({ error: "File upload failed: " + err.message });
   }
 });
 
-// Stream the attachment file to the client (auth-protected)
+// Stream attachment to client
 router.get("/inventory/purchase-bills/:id/attachment", requireAuth, async (req, res): Promise<void> => {
   const userId = req.session!.userId!;
   const billId = parseInt(req.params.id);
@@ -102,9 +91,7 @@ router.get("/inventory/purchase-bills/:id/attachment", requireAuth, async (req, 
     .from(purchaseBillsTable)
     .where(and(eq(purchaseBillsTable.id, billId), eq(purchaseBillsTable.userId, userId)));
 
-  if (!bill || !bill.attachmentUrl) {
-    res.status(404).json({ error: "No attachment found" }); return;
-  }
+  if (!bill || !bill.attachmentUrl) { res.status(404).json({ error: "No attachment found" }); return; }
 
   try {
     const bucket = await getBucket();

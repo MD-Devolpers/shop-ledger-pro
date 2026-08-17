@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto';
 import { Readable } from 'stream';
-import { createRequire } from 'module';
 
 import {
   canAccessObject,
@@ -12,36 +11,39 @@ import {
 
 const REPLIT_SIDECAR_ENDPOINT = 'http://127.0.0.1:1106';
 
-// Lazily load @google-cloud/storage so the server starts on environments
-// where the package is unavailable (e.g. Hostinger). Object storage routes
-// will return 503 on those environments, but the app runs normally otherwise.
-let _storage: any = null;
-async function getStorageClient(): Promise<any> {
-  if (_storage) return _storage;
+// Lazily load @google-cloud/storage via dynamic import so the server starts on
+// environments where the package is unavailable (e.g. Hostinger). Object
+// storage routes will return 503 on those environments.
+let _storageLib: any = null;
+async function getStorageLib(): Promise<any> {
+  if (_storageLib) return _storageLib;
   try {
-    const _require = createRequire(import.meta.url);
-    const { Storage } = _require('@google-cloud/storage');
-    _storage = new Storage({
-      credentials: {
-        audience: 'replit',
-        subject_token_type: 'access_token',
-        token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-        type: 'external_account',
-        credential_source: {
-          url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-          format: {
-            type: 'json',
-            subject_token_field_name: 'access_token',
-          },
-        },
-        universe_domain: 'googleapis.com',
-      },
-      projectId: '',
-    });
-    return _storage;
+    _storageLib = await import('@google-cloud/storage');
+    return _storageLib;
   } catch {
     throw new Error('Object storage is not available on this server.');
   }
+}
+
+async function getStorageClient(): Promise<any> {
+  const { Storage } = await getStorageLib();
+  return new Storage({
+    credentials: {
+      audience: 'replit',
+      subject_token_type: 'access_token',
+      token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
+      type: 'external_account',
+      credential_source: {
+        url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
+        format: {
+          type: 'json',
+          subject_token_field_name: 'access_token',
+        },
+      },
+      universe_domain: 'googleapis.com',
+    },
+    projectId: '',
+  });
 }
 
 export class ObjectNotFoundError extends Error {
@@ -49,14 +51,6 @@ export class ObjectNotFoundError extends Error {
     super('Object not found');
     this.name = 'ObjectNotFoundError';
     Object.setPrototypeOf(this, ObjectNotFoundError.prototype);
-  }
-}
-
-export class ObjectStorageUnavailableError extends Error {
-  constructor() {
-    super('Object storage is not available on this server.');
-    this.name = 'ObjectStorageUnavailableError';
-    Object.setPrototypeOf(this, ObjectStorageUnavailableError.prototype);
   }
 }
 
@@ -141,8 +135,7 @@ export class ObjectStorageService {
     const entityId = parts.slice(1).join('/');
     let entityDir = this.getPrivateObjectDir();
     if (!entityDir.endsWith('/')) entityDir = `${entityDir}/`;
-    const objectEntityPath = `${entityDir}${entityId}`;
-    const { bucketName, objectName } = parseObjectPath(objectEntityPath);
+    const { bucketName, objectName } = parseObjectPath(`${entityDir}${entityId}`);
     const bucket = client.bucket(bucketName);
     const objectFile = bucket.file(objectName);
     const [exists] = await objectFile.exists();
@@ -204,22 +197,19 @@ async function signObjectURL({
   method: 'GET' | 'PUT' | 'DELETE' | 'HEAD';
   ttlSec: number;
 }): Promise<string> {
-  const request = {
-    bucket_name: bucketName,
-    object_name: objectName,
-    method,
-    expires_at: new Date(Date.now() + ttlSec * 1000).toISOString(),
-  };
   const response = await fetch(`${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      bucket_name: bucketName,
+      object_name: objectName,
+      method,
+      expires_at: new Date(Date.now() + ttlSec * 1000).toISOString(),
+    }),
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) {
-    throw new Error(
-      `Failed to sign object URL, errorcode: ${response.status}, make sure you're running on Replit`,
-    );
+    throw new Error(`Failed to sign object URL, errorcode: ${response.status}`);
   }
   const { signed_url: signedURL } = await response.json();
   return signedURL;

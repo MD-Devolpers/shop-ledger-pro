@@ -27145,7 +27145,7 @@ var require_thread_stream = __commonJS({
 var require_transport = __commonJS({
   "../../node_modules/.pnpm/pino@9.14.0/node_modules/pino/lib/transport.js"(exports, module) {
     "use strict";
-    var { createRequire: createRequire2 } = __require("module");
+    var { createRequire } = __require("module");
     var getCallers = require_caller();
     var { join, isAbsolute, sep } = __require("node:path");
     var sleep = require_atomic_sleep();
@@ -27256,7 +27256,7 @@ var require_transport = __commonJS({
         for (const filePath of callers) {
           try {
             const context = filePath === "node:repl" ? process.cwd() + sep : filePath;
-            fixTarget2 = createRequire2(context).resolve(origin);
+            fixTarget2 = createRequire(context).resolve(origin);
             break;
           } catch (err) {
             continue;
@@ -81998,7 +81998,6 @@ var supplier_balance_default = router17;
 // src/routes/bill-attachments.ts
 var import_express18 = __toESM(require_express2(), 1);
 var import_multer = __toESM(require_multer(), 1);
-import { createRequire } from "module";
 var router18 = (0, import_express18.Router)();
 var upload = (0, import_multer.default)({
   storage: import_multer.default.memoryStorage(),
@@ -82011,13 +82010,12 @@ var upload = (0, import_multer.default)({
   }
 });
 var REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
-var _storageClient = null;
-async function getStorageClient() {
-  if (_storageClient) return _storageClient;
+async function getBucket() {
+  const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
+  if (!bucketId) throw new Error("DEFAULT_OBJECT_STORAGE_BUCKET_ID not set");
   try {
-    const _require = createRequire(import.meta.url);
-    const { Storage } = _require("@google-cloud/storage");
-    _storageClient = new Storage({
+    const { Storage } = await import("@google-cloud/storage");
+    const client = new Storage({
       credentials: {
         audience: "replit",
         subject_token_type: "access_token",
@@ -82031,16 +82029,10 @@ async function getStorageClient() {
       },
       projectId: ""
     });
-    return _storageClient;
+    return client.bucket(bucketId);
   } catch {
     throw new Error("Object storage is not available on this server.");
   }
-}
-async function getBucket() {
-  const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
-  if (!bucketId) throw new Error("DEFAULT_OBJECT_STORAGE_BUCKET_ID not set");
-  const client = await getStorageClient();
-  return client.bucket(bucketId);
 }
 router18.post("/inventory/purchase-bills/:id/attach", requireAuth, upload.single("file"), async (req, res) => {
   const userId = req.session.userId;
@@ -82069,8 +82061,7 @@ router18.post("/inventory/purchase-bills/:id/attach", requireAuth, upload.single
       resumable: false
     });
     await db.update(purchaseBillsTable).set({ attachmentUrl: objectPath }).where(eq(purchaseBillsTable.id, billId));
-    const originalName = req.file.originalname;
-    res.json({ attachmentUrl: objectPath, originalName });
+    res.json({ attachmentUrl: objectPath, originalName: req.file.originalname });
   } catch (err) {
     console.error("File upload failed:", err);
     res.status(500).json({ error: "File upload failed: " + err.message });
