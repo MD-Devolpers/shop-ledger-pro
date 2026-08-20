@@ -7,6 +7,7 @@ import {
   getListEntriesQueryKey,
   getGetReportSummaryQueryKey,
 } from "@workspace/api-client-react";
+import { useListProductReturns, useListProductSales, type ProductSale } from "@/lib/inventory-api";
 import {
   TrendingUp,
   TrendingDown,
@@ -15,6 +16,7 @@ import {
   RotateCcw,
   Trash,
   CloudCheck,
+  ShoppingCart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +44,7 @@ type Entry = {
   profit?: number | null;
   entryDate: string;
   deletedAt?: string | null;
+  source?: string | null;
 };
 
 function EntryRow({
@@ -51,6 +54,7 @@ function EntryRow({
   onDelete,
   onRestore,
   isDeleted,
+  sale,
 }: {
   entry: Entry;
   index: number;
@@ -58,6 +62,7 @@ function EntryRow({
   onDelete?: (id: number) => void;
   onRestore?: (id: number) => void;
   isDeleted?: boolean;
+  sale?: ProductSale;
 }) {
   return (
     <tr
@@ -83,6 +88,11 @@ function EntryRow({
           <span className="font-medium">
             {entry.description || (entry.type === "cash_in" ? "Cash In" : "Cash Out")}
           </span>
+          {sale && (
+            <Badge className="text-[10px] py-0 px-1.5 h-4 bg-emerald-100 text-emerald-700 border-0">
+              Sale #{sale.id}
+            </Badge>
+          )}
           {entry.paymentMethod === "digital" && (
             <Badge className="text-[10px] py-0 px-1.5 h-4 bg-blue-100 text-blue-700 border-0">
               Digital
@@ -96,6 +106,11 @@ function EntryRow({
         </div>
         {entry.customerName && (
           <div className="text-xs text-muted-foreground mt-0.5">{entry.customerName}</div>
+        )}
+        {sale?.items && (
+          <div className="text-xs text-muted-foreground mt-0.5">
+            {sale.items.map(item => `${item.productName || "Product"} × ${item.quantity}`).join(", ")}
+          </div>
         )}
         {isDeleted && entry.deletedAt && (
           <div className="text-xs text-destructive font-medium mt-0.5">
@@ -171,6 +186,115 @@ function EntryRow({
   );
 }
 
+function SaleHistoryTable({ sales, isLoading }: { sales: ProductSale[]; isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map(i => <div key={i} className="h-16 bg-card border rounded-xl animate-pulse" />)}
+      </div>
+    );
+  }
+
+  if (sales.length === 0) {
+    return (
+      <div className="text-center py-16 text-muted-foreground">
+        <ShoppingCart className="h-12 w-12 mx-auto mb-3 opacity-20" />
+        <p className="font-medium">No product sales found</p>
+        <p className="text-xs mt-1">Product sale history will appear here after a sale is saved.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto border rounded-xl">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="bg-teal-50 dark:bg-teal-950/20">
+            <th className="text-center py-2 px-2 border-b text-xs w-10">#</th>
+            <th className="text-left py-2 px-2 border-b text-xs">Sale</th>
+            <th className="text-left py-2 px-2 border-b text-xs">Products / Qty</th>
+            <th className="text-left py-2 px-2 border-b text-xs">Date</th>
+            <th className="text-left py-2 px-2 border-b text-xs">Payment</th>
+            <th className="text-right py-2 px-2 border-b text-xs">Total</th>
+            <th className="text-right py-2 px-2 border-b text-xs">Profit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...sales].sort((a, b) => {
+            const dateDiff = new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime();
+            return dateDiff !== 0 ? dateDiff : b.id - a.id;
+          }).map((sale, index) => (
+            <tr key={sale.id} className="border-b last:border-b-0 hover:bg-muted/20">
+              <td className="text-center py-2 px-2 text-xs text-muted-foreground">{index + 1}</td>
+              <td className="py-2 px-2">
+                <div className="font-medium">Sale #{sale.id}</div>
+                {sale.customerName && <div className="text-xs text-muted-foreground">{sale.customerName}</div>}
+                {sale.isCredit && <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 mt-1">Credit</Badge>}
+              </td>
+              <td className="py-2 px-2 min-w-[220px]">
+                {(sale.items ?? []).map(item => (
+                  <div key={item.id} className="text-xs">
+                    {item.productName || item.productCode || "Product"} × {item.quantity}
+                  </div>
+                ))}
+              </td>
+              <td className="py-2 px-2 text-xs text-muted-foreground whitespace-nowrap">
+                {format(new Date(sale.saleDate), "MMM d, yyyy h:mm a")}
+              </td>
+              <td className="py-2 px-2 text-xs capitalize">{sale.paymentMethod}</td>
+              <td className="text-right py-2 px-2 font-bold text-green-600 whitespace-nowrap">
+                {formatCurrency(sale.totalAmount)}
+              </td>
+              <td className="text-right py-2 px-2 text-amber-600 font-medium whitespace-nowrap">
+                {formatCurrency(sale.totalProfit)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ReturnHistoryTable({ returns }: { returns: any[] }) {
+  if (returns.length === 0) return null;
+  return (
+    <div className="overflow-x-auto border rounded-xl">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="bg-orange-50 dark:bg-orange-950/20">
+            <th className="text-center py-2 px-2 border-b text-xs w-10">#</th>
+            <th className="text-left py-2 px-2 border-b text-xs">Product</th>
+            <th className="text-left py-2 px-2 border-b text-xs">Date</th>
+            <th className="text-left py-2 px-2 border-b text-xs">Payment</th>
+            <th className="text-right py-2 px-2 border-b text-xs">Qty</th>
+            <th className="text-right py-2 px-2 border-b text-xs">Refund</th>
+          </tr>
+        </thead>
+        <tbody>
+          {returns.map((item, index) => (
+            <tr key={item.id} className="border-b last:border-b-0 hover:bg-muted/20">
+              <td className="text-center py-2 px-2 text-xs text-muted-foreground">{index + 1}</td>
+              <td className="py-2 px-2">
+                <div className="font-medium">{item.productName || "Product"}</div>
+                {item.productCode && <div className="text-xs text-muted-foreground">{item.productCode}</div>}
+              </td>
+              <td className="py-2 px-2 text-xs text-muted-foreground whitespace-nowrap">
+                {format(new Date(item.returnDate), "MMM d, yyyy h:mm a")}
+              </td>
+              <td className="py-2 px-2 text-xs capitalize">{item.paymentMethod}</td>
+              <td className="text-right py-2 px-2">{item.quantity}</td>
+              <td className="text-right py-2 px-2 font-bold text-red-600 whitespace-nowrap">
+                -{formatCurrency(item.returnAmount)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function Entries() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -191,6 +315,19 @@ export default function Entries() {
           : {};
 
   const { data: allEntries, isLoading } = useListEntries(queryParams);
+  const { data: saleHistory = [], isLoading: isSaleHistoryLoading } = useListProductSales();
+  const { data: returnHistory = [] } = useListProductReturns();
+
+  const isSaleEntry = (entry: Entry) =>
+    (entry.source === "product_sale" || entry.source === "mobile_sale") &&
+    !(entry.description ?? "").toLowerCase().startsWith("product return");
+  const isReturnEntry = (entry: Entry) =>
+    (entry.description ?? "").toLowerCase().startsWith("product return");
+  const visibleEntries = (allEntries ?? []).filter(entry => {
+    if (tab === "all") return !isSaleEntry(entry) && !isReturnEntry(entry);
+    if (tab === "cash_in" || tab === "cash_out") return !isSaleEntry(entry) && !isReturnEntry(entry);
+    return true;
+  });
 
   const deleteEntry = useDeleteEntry();
   const restoreEntry = useRestoreEntry();
@@ -236,7 +373,7 @@ export default function Entries() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="w-full mb-4 grid grid-cols-4">
+          <TabsList className="w-full mb-4 grid grid-cols-5">
             <TabsTrigger value="all" data-testid="tab-all">
               All
             </TabsTrigger>
@@ -254,6 +391,10 @@ export default function Entries() {
               <Trash className="h-3.5 w-3.5" />
               Bin
             </TabsTrigger>
+            <TabsTrigger value="sale_history" data-testid="tab-sale-history" className="flex items-center gap-1">
+              <ShoppingCart className="h-3.5 w-3.5" />
+              Sales
+            </TabsTrigger>
           </TabsList>
 
           {/* Recycle bin explanation */}
@@ -264,15 +405,17 @@ export default function Entries() {
             </div>
           )}
 
-          {["all", "cash_in", "cash_out", "bin"].map((t) => (
+          {["all", "cash_in", "cash_out", "bin", "sale_history"].map((t) => (
             <TabsContent key={t} value={t} className="space-y-2 mt-0">
-              {isLoading ? (
+              {t === "sale_history" ? (
+                <SaleHistoryTable sales={saleHistory} isLoading={isSaleHistoryLoading} />
+              ) : isLoading ? (
                 <div className="space-y-2">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="h-16 bg-card border rounded-xl animate-pulse" />
                   ))}
                 </div>
-              ) : !allEntries || allEntries.length === 0 ? (
+              ) : visibleEntries.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">
                   {t === "bin" ? (
                     <>
@@ -299,7 +442,7 @@ export default function Entries() {
                       </tr>
                     </thead>
                     <tbody>
-                      {[...allEntries].sort((a, b) => {
+                      {[...visibleEntries].sort((a, b) => {
                           const dt = new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime();
                           return dt !== 0 ? dt : b.id - a.id;
                         }).map((entry, idx) => (
@@ -307,6 +450,7 @@ export default function Entries() {
                           key={entry.id}
                           entry={entry}
                           index={idx}
+                          sale={saleHistory.find(sale => sale.entryId === entry.id)}
                           isDeleted={t === "bin"}
                           onEdit={setEditEntry}
                           onDelete={handleDelete}
@@ -315,6 +459,22 @@ export default function Entries() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+              {t === "all" && !isLoading && (
+                <div className="mt-5 space-y-5">
+                  {saleHistory.length > 0 && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Product Sale History</h3>
+                      <SaleHistoryTable sales={saleHistory} isLoading={false} />
+                    </div>
+                  )}
+                  {returnHistory.length > 0 && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold text-orange-700 uppercase tracking-wide">Product Return History</h3>
+                      <ReturnHistoryTable returns={[...returnHistory].sort((a, b) => new Date(b.returnDate).getTime() - new Date(a.returnDate).getTime())} />
+                    </div>
+                  )}
                 </div>
               )}
             </TabsContent>
