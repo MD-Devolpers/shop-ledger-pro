@@ -418,8 +418,19 @@ export function useCreateProductSale() {
 export function useCreateProductReturn() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: any) => apiFetch<any>("/api/inventory/product-returns", { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: PRODUCTS_KEY }); qc.invalidateQueries({ queryKey: SALES_KEY }); },
+    mutationFn: (data: any) => apiFetch<any>(
+      data.saleId ? "/api/inventory/product-returns" : "/api/inventory/product-returns/bulk",
+      { method: "POST", body: JSON.stringify(data) }
+    ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: PRODUCTS_KEY });
+      qc.invalidateQueries({ queryKey: SALES_KEY });
+      qc.invalidateQueries({ queryKey: ["inventory", "product-returns"] });
+      qc.invalidateQueries({ predicate: query => {
+        const key = query.queryKey?.[0];
+        return typeof key === "string" && (key.startsWith("/api/entries") || key.startsWith("/api/reports"));
+      }});
+    },
   });
 }
 export function useListProductReturns() {
