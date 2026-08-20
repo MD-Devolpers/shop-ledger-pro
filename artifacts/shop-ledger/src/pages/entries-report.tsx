@@ -22,6 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useListProductReturns, useListProductSales } from "@/lib/inventory-api";
 
 type FilterMode = "daily" | "weekly" | "monthly" | "custom";
 
@@ -72,6 +73,26 @@ export default function EntriesReport() {
   }, [mode, selectedDate, weekRef, monthRef, customStart, customEnd]);
 
   const { data: entries = [], isLoading } = useListEntries(queryParams as any);
+  const reportStart = (queryParams as any).date ?? (queryParams as any).start_date;
+  const reportEnd = (queryParams as any).date ?? (queryParams as any).end_date;
+  const { data: productSales = [] } = useListProductSales({
+    dateFrom: reportStart,
+    dateTo: reportEnd,
+  });
+  const { data: allProductReturns = [] } = useListProductReturns();
+
+  const isProductSaleEntry = (entry: (typeof entries)[number]) =>
+    (entry.source === "product_sale" || entry.source === "mobile_sale") &&
+    !(entry.description ?? "").toLowerCase().startsWith("product return");
+  const isProductReturnEntry = (entry: (typeof entries)[number]) =>
+    (entry.description ?? "").toLowerCase().startsWith("product return");
+  const ledgerEntries = entries.filter(entry => !isProductSaleEntry(entry) && !isProductReturnEntry(entry));
+  const productReturns = allProductReturns
+    .filter(item => {
+      const date = format(new Date(item.returnDate), "yyyy-MM-dd");
+      return date >= reportStart && date <= reportEnd;
+    })
+    .sort((a, b) => new Date(b.returnDate).getTime() - new Date(a.returnDate).getTime());
 
   // Summary
   const summary = useMemo(() => {
@@ -85,8 +106,11 @@ export default function EntriesReport() {
 
   // Sorted entries (newest first)
   const sorted = useMemo(
-    () => [...entries].sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime()),
-    [entries]
+    () => [...ledgerEntries].sort((a, b) => {
+      const dateDiff = new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime();
+      return dateDiff !== 0 ? dateDiff : b.id - a.id;
+    }),
+    [ledgerEntries]
   );
 
   // Period label
@@ -384,6 +408,52 @@ export default function EntriesReport() {
             </div>
           )}
         </div>
+
+        {productSales.length > 0 && (
+          <div className="mt-5">
+            <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-2">
+              Product Sale History
+            </p>
+            <div className="rounded-xl border overflow-hidden bg-emerald-50/40">
+              {[...productSales].sort((a, b) => {
+                const dateDiff = new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime();
+                return dateDiff !== 0 ? dateDiff : b.id - a.id;
+              }).map(sale => (
+                <div key={sale.id} className="grid grid-cols-[1fr_auto_auto] gap-2 items-center px-3 py-2.5 border-b last:border-b-0">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold truncate">Sale #{sale.id}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {(sale.items ?? []).map(item => `${item.productName || "Product"} × ${item.quantity}`).join(", ")}
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-emerald-700">{formatCurrency(sale.totalAmount)}</span>
+                  <span className="text-[10px] font-semibold text-amber-700">Profit {formatCurrency(sale.totalProfit)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {productReturns.length > 0 && (
+          <div className="mt-5">
+            <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-2">
+              Product Return History
+            </p>
+            <div className="rounded-xl border overflow-hidden bg-orange-50/40">
+              {productReturns.map(item => (
+                <div key={item.id} className="grid grid-cols-[1fr_auto] gap-2 items-center px-3 py-2.5 border-b last:border-b-0">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold truncate">{item.productName || "Product"} × {item.quantity}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Return from Sale #{item.saleId} · {format(new Date(item.returnDate), "MMM d, h:mm a")}
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-red-600">-{formatCurrency(item.returnAmount)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
