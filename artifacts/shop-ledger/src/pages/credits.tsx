@@ -791,25 +791,8 @@ export default function Credits() {
       paymentMethod, isCredit: false, customerName: name,
     }}, {
       onSuccess: () => {
-        const pending = supplierCredits
-          .filter(c => c.customerName.trim().toLowerCase() === name.trim().toLowerCase() && c.status === "pending")
-          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-        let left = amount;
-        const applyNext = (i: number) => {
-          if (i >= pending.length || left <= 0) {
-            invalidateAll();
-            toast({ title: "Supplier paid!", description: `${fmt(amount)} paid to ${name}` });
-            return;
-          }
-          const c = pending[i];
-          if (left >= c.amount) {
-            left -= c.amount;
-            updateCredit.mutate({ id: c.id, data: { status: "paid" } }, { onSuccess: () => applyNext(i + 1) });
-          } else {
-            updateCredit.mutate({ id: c.id, data: { amount: c.amount - left } }, { onSuccess: () => { left = 0; applyNext(i + 1); } });
-          }
-        };
-        applyNext(0);
+        invalidateAll();
+        toast({ title: "Supplier paid!", description: `${fmt(amount)} paid to ${name}` });
       },
       onError: (e: any) => toast({ title: "Error", description: e.error, variant: "destructive" }),
     });
