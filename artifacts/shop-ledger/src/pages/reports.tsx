@@ -105,7 +105,10 @@ export default function Reports() {
   }, [tableEntries]);
 
   const tableSorted = useMemo(
-    () => [...tableEntries].sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime()),
+    () => [...tableEntries].sort((a, b) => {
+      const dateDiff = new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime();
+      return dateDiff !== 0 ? dateDiff : b.id - a.id;
+    }),
     [tableEntries]
   );
 
