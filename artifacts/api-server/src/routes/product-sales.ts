@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, isNull, ilike, gte, lte, sql, inArray } from "drizzle-orm";
+import { eq, and, or, desc, asc, isNull, ilike, gte, lte, sql, inArray } from "drizzle-orm";
 import {
   db,
   productSalesTable,
@@ -295,58 +295,125 @@ router.post("/inventory/product-sales", requireAuth, async (req, res): Promise<v
 // Product returns
 router.post("/inventory/product-returns", requireAuth, async (req, res): Promise<void> => {
   const userId = req.session!.userId!;
-  const { saleId, productId, quantity, returnAmount, reason, paymentMethod = "cash", isResalable = false } = req.body;
+  const { saleId, productId, quantity, reason, paymentMethod = "cash", isResalable = true } = req.body;
 
-  if (!productId || !quantity) { res.status(400).json({ error: "Product and quantity required" }); return; }
+  if (!saleId || !productId || !quantity) {
+    res.status(400).json({ error: "Original sale, product and quantity are required" });
+    return;
+  }
 
   const qty = parseFloat(quantity);
-  const retAmt = parseFloat(returnAmount ?? 0);
+  if (!Number.isFinite(qty) || qty <= 0) {
+    res.status(400).json({ error: "Return quantity must be greater than zero" });
+    return;
+  }
+  if (!Number.isInteger(qty)) {
+    res.status(400).json({ error: "Return quantity must be a whole number (1, 2, 3...)" });
+    return;
+  }
 
-  // Get purchase price for profit reversal
-  let profitReversed = 0;
-  if (saleId) {
-    const [saleItem] = await db.select()
-      .from(productSaleItemsTable)
-      .where(and(eq(productSaleItemsTable.saleId, parseInt(saleId)), eq(productSaleItemsTable.productId, parseInt(productId))));
-    if (saleItem) {
-      const sp = parseFloat(saleItem.salePrice as string);
-      const pp = parseFloat(saleItem.purchasePrice as string);
-      profitReversed = qty * (sp - pp);
+  const parsedSaleId = parseInt(saleId);
+  const parsedProductId = parseInt(productId);
+  if (!Number.isInteger(parsedSaleId) || !Number.isInteger(parsedProductId)) {
+    res.status(400).json({ error: "Invalid sale or product" });
+    return;
+  }
+
+  const [sale] = await db.select().from(productSalesTable)
+    .where(and(
+      eq(productSalesTable.id, parsedSaleId),
+      eq(productSalesTable.userId, userId),
+      isNull(productSalesTable.deletedAt),
+    ));
+  if (!sale || (sale.status ?? "active") !== "active") {
+    res.status(404).json({ error: "Original sale is not available for return" });
+    return;
+  }
+
+  const [saleItem] = await db.select().from(productSaleItemsTable)
+    .where(and(eq(productSaleItemsTable.saleId, parsedSaleId), eq(productSaleItemsTable.productId, parsedProductId)));
+  if (!saleItem) {
+    res.status(400).json({ error: "This product was not part of the selected sale" });
+    return;
+  }
+
+  const soldQty = parseFloat(saleItem.quantity as string);
+
+  // Refund the proportional amount actually paid for this line, including any
+  // sale-level discount. The browser never controls this value.
+  const allSaleItems = await db.select({ lineTotal: productSaleItemsTable.lineTotal })
+    .from(productSaleItemsTable)
+    .where(eq(productSaleItemsTable.saleId, parsedSaleId));
+  const saleLinesTotal = allSaleItems.reduce((total, item) => total + parseFloat(item.lineTotal as string), 0);
+  const itemLineTotal = parseFloat(saleItem.lineTotal as string);
+  const saleAmount = parseFloat(sale.totalAmount as string);
+  const paidLineTotal = saleLinesTotal > 0 ? itemLineTotal * (saleAmount / saleLinesTotal) : itemLineTotal;
+  const returnAmount = Math.round((qty * (paidLineTotal / soldQty)) * 100) / 100;
+  const purchaseCost = qty * parseFloat(saleItem.purchasePrice as string);
+  const profitReversed = Math.round((returnAmount - purchaseCost) * 100) / 100;
+
+  const outcome = await db.transaction(async (tx) => {
+    // Lock the sale while calculating remaining quantity so concurrent returns
+    // cannot both refund the same sold units.
+    await tx.execute(sql`SELECT id FROM product_sales WHERE id = ${parsedSaleId} AND user_id = ${userId} FOR UPDATE`);
+    const [lockedSale] = await tx.select({ status: productSalesTable.status, deletedAt: productSalesTable.deletedAt })
+      .from(productSalesTable)
+      .where(and(eq(productSalesTable.id, parsedSaleId), eq(productSalesTable.userId, userId)));
+    if (!lockedSale || lockedSale.deletedAt || (lockedSale.status ?? "active") !== "active") {
+      return { error: "Original sale is not available for return" };
     }
-  }
 
-  // Restore stock
-  await db.execute(
-    sql`UPDATE products SET stock_qty = stock_qty + ${qty} WHERE id = ${parseInt(productId)} AND user_id = ${userId}`
-  );
+    const previousReturns = await tx.select({ quantity: productReturnsTable.quantity })
+      .from(productReturnsTable)
+      .where(and(
+        eq(productReturnsTable.userId, userId),
+        eq(productReturnsTable.saleId, parsedSaleId),
+        eq(productReturnsTable.productId, parsedProductId),
+      ));
+    const alreadyReturned = previousReturns.reduce((total, item) => total + parseFloat(item.quantity as string), 0);
+    const remainingQty = Math.max(0, soldQty - alreadyReturned);
+    if (qty > remainingQty + 0.000001) {
+      return { error: `Only ${remainingQty} item(s) are eligible for return from this sale` };
+    }
 
-  // Create return ledger entry (cash_out)
-  if (retAmt > 0) {
-    await db.insert(entriesTable).values({
+    await tx.execute(
+      sql`UPDATE products SET stock_qty = stock_qty + ${qty} WHERE id = ${parsedProductId} AND user_id = ${userId}`
+    );
+
+    if (returnAmount > 0) {
+      await tx.insert(entriesTable).values({
+        userId,
+        type: "cash_out",
+        amount: returnAmount.toString(),
+        description: `Product Return — Sale #${parsedSaleId}${reason ? ` - ${reason}` : ""}`,
+        paymentMethod: paymentMethod as any,
+        profit: (-profitReversed).toString(),
+        isCredit: false,
+        isFundOperation: false,
+        source: "product_sale",
+        entryDate: new Date(),
+      });
+    }
+
+    const [record] = await tx.insert(productReturnsTable).values({
       userId,
-      type: "cash_out",
-      amount: retAmt.toString(),
-      description: `Product Return${reason ? ` - ${reason}` : ""}`,
+      saleId: parsedSaleId,
+      productId: parsedProductId,
+      quantity: qty.toString(),
+      returnAmount: returnAmount.toString(),
+      profitReversed: profitReversed.toString(),
+      reason: reason ?? null,
+      isResalable: !!isResalable,
       paymentMethod: paymentMethod as any,
-      profit: (-profitReversed).toString(),
-      isCredit: false,
-      isFundOperation: false,
-      entryDate: new Date(),
-    });
+      returnDate: new Date(),
+    }).returning();
+    return { record };
+  });
+  if ("error" in outcome) {
+    res.status(400).json({ error: outcome.error });
+    return;
   }
-
-  const [ret] = await db.insert(productReturnsTable).values({
-    userId,
-    saleId: saleId ? parseInt(saleId) : null,
-    productId: parseInt(productId),
-    quantity: qty.toString(),
-    returnAmount: retAmt.toString(),
-    profitReversed: profitReversed.toString(),
-    reason: reason ?? null,
-    isResalable: !!isResalable,
-    paymentMethod: paymentMethod as any,
-    returnDate: new Date(),
-  }).returning();
+  const ret = outcome.record;
 
   res.status(201).json({
     id: ret.id,
@@ -357,6 +424,134 @@ router.post("/inventory/product-returns", requireAuth, async (req, res): Promise
     reason: ret.reason,
     isResalable: ret.isResalable,
     returnDate: ret.returnDate.toISOString(),
+  });
+});
+
+router.post("/inventory/product-returns/bulk", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.session!.userId!;
+  const { productId, quantity, reason, paymentMethod = "cash", isResalable = true } = req.body;
+  const parsedProductId = parseInt(productId);
+  const qty = parseFloat(quantity);
+
+  if (!Number.isInteger(parsedProductId) || !Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
+    res.status(400).json({ error: "Product and a whole return quantity are required" });
+    return;
+  }
+
+  const [product] = await db.select({ name: productsTable.name })
+    .from(productsTable)
+    .where(and(eq(productsTable.id, parsedProductId), eq(productsTable.userId, userId)));
+  if (!product) {
+    res.status(404).json({ error: "Product not found" });
+    return;
+  }
+
+  const outcome = await db.transaction(async (tx) => {
+    const candidates = await tx
+      .select({ sale: productSalesTable, item: productSaleItemsTable })
+      .from(productSalesTable)
+      .innerJoin(productSaleItemsTable, eq(productSaleItemsTable.saleId, productSalesTable.id))
+      .where(and(
+        eq(productSalesTable.userId, userId),
+        eq(productSaleItemsTable.productId, parsedProductId),
+        isNull(productSalesTable.deletedAt),
+        or(isNull(productSalesTable.status), eq(productSalesTable.status, "active")),
+      ))
+      .orderBy(asc(productSalesTable.saleDate), asc(productSalesTable.id));
+
+    const allocations: Array<{
+      saleId: number;
+      quantity: number;
+      returnAmount: number;
+      profitReversed: number;
+    }> = [];
+    let remainingToReturn = qty;
+
+    for (const candidate of candidates) {
+      if (remainingToReturn <= 0) break;
+      await tx.execute(sql`SELECT id FROM product_sales WHERE id = ${candidate.sale.id} AND user_id = ${userId} FOR UPDATE`);
+
+      const previousReturns = await tx.select({ quantity: productReturnsTable.quantity })
+        .from(productReturnsTable)
+        .where(and(
+          eq(productReturnsTable.userId, userId),
+          eq(productReturnsTable.saleId, candidate.sale.id),
+          eq(productReturnsTable.productId, parsedProductId),
+        ));
+      const alreadyReturned = previousReturns.reduce((total, item) => total + parseFloat(item.quantity as string), 0);
+      const soldQty = parseFloat(candidate.item.quantity as string);
+      const availableQty = Math.max(0, soldQty - alreadyReturned);
+      if (availableQty <= 0) continue;
+
+      const allSaleItems = await tx.select({ lineTotal: productSaleItemsTable.lineTotal })
+        .from(productSaleItemsTable)
+        .where(eq(productSaleItemsTable.saleId, candidate.sale.id));
+      const saleLinesTotal = allSaleItems.reduce((total, item) => total + parseFloat(item.lineTotal as string), 0);
+      const itemLineTotal = parseFloat(candidate.item.lineTotal as string);
+      const saleAmount = parseFloat(candidate.sale.totalAmount as string);
+      const paidLineTotal = saleLinesTotal > 0 ? itemLineTotal * (saleAmount / saleLinesTotal) : itemLineTotal;
+      const refundPerUnit = soldQty > 0 ? paidLineTotal / soldQty : 0;
+      const allocatedQty = Math.min(remainingToReturn, availableQty);
+      const returnAmount = Math.round(allocatedQty * refundPerUnit * 100) / 100;
+      const purchaseCost = allocatedQty * parseFloat(candidate.item.purchasePrice as string);
+      const profitReversed = Math.round((returnAmount - purchaseCost) * 100) / 100;
+
+      allocations.push({ saleId: candidate.sale.id, quantity: allocatedQty, returnAmount, profitReversed });
+      remainingToReturn -= allocatedQty;
+    }
+
+    if (remainingToReturn > 0.000001) {
+      return { error: `Only ${qty - remainingToReturn} item(s) are eligible for return` };
+    }
+
+    const totalReturnAmount = Math.round(allocations.reduce((total, item) => total + item.returnAmount, 0) * 100) / 100;
+    const totalProfitReversed = Math.round(allocations.reduce((total, item) => total + item.profitReversed, 0) * 100) / 100;
+
+    await tx.execute(
+      sql`UPDATE products SET stock_qty = stock_qty + ${qty} WHERE id = ${parsedProductId} AND user_id = ${userId}`
+    );
+    if (totalReturnAmount > 0) {
+      await tx.insert(entriesTable).values({
+        userId,
+        type: "cash_out",
+        amount: totalReturnAmount.toString(),
+        description: `Product Return — ${product.name}${reason ? ` - ${reason}` : ""}`,
+        paymentMethod: paymentMethod as any,
+        profit: (-totalProfitReversed).toString(),
+        isCredit: false,
+        isFundOperation: false,
+        source: "product_sale",
+        entryDate: new Date(),
+      });
+    }
+
+    for (const allocation of allocations) {
+      await tx.insert(productReturnsTable).values({
+        userId,
+        saleId: allocation.saleId,
+        productId: parsedProductId,
+        quantity: allocation.quantity.toString(),
+        returnAmount: allocation.returnAmount.toString(),
+        profitReversed: allocation.profitReversed.toString(),
+        reason: reason ?? null,
+        isResalable: !!isResalable,
+        paymentMethod: paymentMethod as any,
+        returnDate: new Date(),
+      });
+    }
+    return { totalReturnAmount, totalProfitReversed, saleCount: allocations.length };
+  });
+
+  if ("error" in outcome) {
+    res.status(400).json({ error: outcome.error });
+    return;
+  }
+  res.status(201).json({
+    quantity: qty,
+    returnAmount: outcome.totalReturnAmount,
+    profitReversed: outcome.totalProfitReversed,
+    saleCount: outcome.saleCount,
+    paymentMethod,
   });
 });
 
@@ -468,64 +663,71 @@ router.post("/inventory/product-sales/:id/cancel", requireAuth, async (req, res)
   const id = parseInt(req.params.id);
   const { reason } = req.body;
 
-  const [sale] = await db.select().from(productSalesTable)
-    .where(and(eq(productSalesTable.id, id), eq(productSalesTable.userId, userId)));
-  if (!sale) { res.status(404).json({ error: "Sale not found" }); return; }
-  if ((sale.status ?? "active") === "cancelled") { res.status(400).json({ error: "Sale already cancelled" }); return; }
-
   const [actor] = await db.select({ username: usersTable.username, role: usersTable.role })
     .from(usersTable).where(eq(usersTable.id, userId));
 
-  const items = await db.select().from(productSaleItemsTable)
-    .where(eq(productSaleItemsTable.saleId, id));
+  const outcome = await db.transaction(async (tx) => {
+    // Returns lock this same sale row, so a cancellation and a return cannot
+    // both restore the same stock.
+    await tx.execute(sql`SELECT id FROM product_sales WHERE id = ${id} AND user_id = ${userId} FOR UPDATE`);
+    const [sale] = await tx.select().from(productSalesTable)
+      .where(and(eq(productSalesTable.id, id), eq(productSalesTable.userId, userId)));
+    if (!sale) return { error: "Sale not found", status: 404 };
+    if ((sale.status ?? "active") === "cancelled") return { error: "Sale already cancelled", status: 400 };
+    const existingReturn = await tx.select({ id: productReturnsTable.id })
+      .from(productReturnsTable)
+      .where(and(eq(productReturnsTable.userId, userId), eq(productReturnsTable.saleId, id)))
+      .limit(1);
+    if (existingReturn.length > 0) {
+      return { error: "A sale with product returns cannot be cancelled", status: 400 };
+    }
 
-  const oldSnapshot = {
-    status: "active",
-    totalAmount: parseFloat(sale.totalAmount as string),
-    totalProfit: parseFloat(sale.totalProfit as string),
-    isCredit: sale.isCredit,
-    paymentMethod: sale.paymentMethod,
-    items: items.map(i => ({
-      productId: i.productId,
-      quantity: parseFloat(i.quantity as string),
-      salePrice: parseFloat(i.salePrice as string),
-    })),
-  };
+    const items = await tx.select().from(productSaleItemsTable)
+      .where(eq(productSaleItemsTable.saleId, id));
+    const oldSnapshot = {
+      status: "active",
+      totalAmount: parseFloat(sale.totalAmount as string),
+      totalProfit: parseFloat(sale.totalProfit as string),
+      isCredit: sale.isCredit,
+      paymentMethod: sale.paymentMethod,
+      items: items.map(item => ({
+        productId: item.productId,
+        quantity: parseFloat(item.quantity as string),
+        salePrice: parseFloat(item.salePrice as string),
+      })),
+    };
 
-  // 1. Restore stock
-  for (const item of items) {
-    const qty = parseFloat(item.quantity as string);
-    await db.execute(
-      sql`UPDATE products SET stock_qty = stock_qty + ${qty}, updated_at = NOW() WHERE id = ${item.productId} AND user_id = ${userId}`
-    );
-  }
-
-  // 2. Soft-delete ledger entry (reverses cash/digital balance)
-  if (sale.entryId) {
-    await db.update(entriesTable).set({ deletedAt: new Date() }).where(eq(entriesTable.id, sale.entryId));
-  }
-
-  // 3. Soft-delete credit record if credit sale
-  if (sale.creditId) {
-    await db.update(creditsTable).set({ deletedAt: new Date() }).where(eq(creditsTable.id, sale.creditId));
-  }
-
-  // 4. Mark sale as cancelled
-  await db.update(productSalesTable)
-    .set({ status: "cancelled", cancelledAt: new Date(), cancelledBy: userId })
-    .where(eq(productSalesTable.id, id));
-
-  // 5. Log to audit history
-  await db.insert(saleEditHistoryTable).values({
-    saleId: id,
-    userId,
-    editType: "cancel",
-    oldValues: JSON.stringify(oldSnapshot),
-    newValues: JSON.stringify({ status: "cancelled", reason: reason?.trim() ?? null }),
-    editedByName: actor?.username ?? "Unknown",
-    reason: reason?.trim() ?? null,
+    for (const item of items) {
+      const qty = parseFloat(item.quantity as string);
+      await tx.execute(
+        sql`UPDATE products SET stock_qty = stock_qty + ${qty}, updated_at = NOW() WHERE id = ${item.productId} AND user_id = ${userId}`
+      );
+    }
+    if (sale.entryId) {
+      await tx.update(entriesTable).set({ deletedAt: new Date() }).where(eq(entriesTable.id, sale.entryId));
+    }
+    if (sale.creditId) {
+      await tx.update(creditsTable).set({ deletedAt: new Date() }).where(eq(creditsTable.id, sale.creditId));
+    }
+    await tx.update(productSalesTable)
+      .set({ status: "cancelled", cancelledAt: new Date(), cancelledBy: userId })
+      .where(eq(productSalesTable.id, id));
+    await tx.insert(saleEditHistoryTable).values({
+      saleId: id,
+      userId,
+      editType: "cancel",
+      oldValues: JSON.stringify(oldSnapshot),
+      newValues: JSON.stringify({ status: "cancelled", reason: reason?.trim() ?? null }),
+      editedByName: actor?.username ?? "Unknown",
+      reason: reason?.trim() ?? null,
+    });
+    return { success: true };
   });
 
+  if (!outcome.success) {
+    res.status(outcome.status).json({ error: outcome.error });
+    return;
+  }
   res.json({ success: true, message: `Sale #${id} cancelled. Stock restored.` });
 });
 
