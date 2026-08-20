@@ -12,7 +12,7 @@ import {
   useReceiveReplacement, useUpdateReplacement, useListProducts, useListCompanies,
   type CompanyReplacement,
 } from "@/lib/inventory-api";
-import { ArrowDownToLine, PackageX, Plus, ChevronRight, Filter, RotateCcw } from "lucide-react";
+import { ArrowDownToLine, PackageX, Plus, ChevronRight, Filter, RotateCcw, Building2, List } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800 border-amber-200",
@@ -60,6 +60,18 @@ export default function CompanyReplacements() {
   const filtered = replacements.filter(r =>
     filterCompany ? r.companyName.toLowerCase().includes(filterCompany.toLowerCase()) : true
   );
+  const companySummary = Object.values(
+    replacements.reduce<Record<string, { name: string; records: number; sent: number; received: number; pending: number }>>((groups, replacement) => {
+      const name = replacement.companyName || "Unknown Company";
+      const current = groups[name] ?? { name, records: 0, sent: 0, received: 0, pending: 0 };
+      current.records += 1;
+      current.sent += replacement.sentQty;
+      current.received += replacement.receivedQty;
+      current.pending += replacement.pendingQty;
+      groups[name] = current;
+      return groups;
+    }, {})
+  ).sort((a, b) => a.name.localeCompare(b.name));
 
   function handleCompanySelect(cid: string) {
     setForm(f => {
@@ -132,6 +144,15 @@ export default function CompanyReplacements() {
           <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search company..." className="pl-8 h-9 w-48" value={filterCompany} onChange={e => setFilterCompany(e.target.value)} />
         </div>
+        <Select value={filterCompany || "all-companies"} onValueChange={value => setFilterCompany(value === "all-companies" ? "" : value)}>
+          <SelectTrigger className="h-9 w-48"><SelectValue placeholder="All Companies" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all-companies">All Companies</SelectItem>
+            {companySummary.map(company => (
+              <SelectItem key={company.name} value={company.name}>{company.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -142,7 +163,47 @@ export default function CompanyReplacements() {
             <SelectItem value="rejected">Rejected</SelectItem>
           </SelectContent>
         </Select>
+        {filterCompany && (
+          <Button variant="ghost" size="sm" className="h-9 gap-1" onClick={() => setFilterCompany("")}>
+            <List className="h-3.5 w-3.5" />Show All
+          </Button>
+        )}
       </div>
+
+      {/* Company-wise overview — click a company to inspect its complete records */}
+      {companySummary.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Building2 className="h-4 w-4 text-primary" />
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Company-wise Replacement Overview
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {companySummary.map(company => {
+              const selected = filterCompany.toLowerCase() === company.name.toLowerCase();
+              return (
+                <button
+                  key={company.name}
+                  type="button"
+                  onClick={() => setFilterCompany(selected ? "" : company.name)}
+                  className={`text-left bg-card border rounded-xl p-3 transition-colors hover:border-primary/60 ${selected ? "border-primary ring-1 ring-primary/20" : ""}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold truncate">{company.name}</span>
+                    <Badge variant="secondary">{company.records} records</Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mt-2 text-[11px]">
+                    <span className="text-muted-foreground">Sent <b className="text-foreground">{fmt(company.sent)}</b></span>
+                    <span className="text-green-600">Received <b>{fmt(company.received)}</b></span>
+                    <span className="text-amber-600">Pending <b>{fmt(company.pending)}</b></span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
