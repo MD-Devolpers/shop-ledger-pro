@@ -717,11 +717,30 @@ function ProductProfitTab() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ProductReports() {
+  type SalesPeriod = "custom" | "daily" | "weekly" | "monthly";
   const salesOnly = new URLSearchParams(window.location.search).get("tab") === "sales";
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("custom");
   const [billSaleId, setBillSaleId] = useState<number | null>(null);
+
+  function setQuickPeriod(period: SalesPeriod) {
+    if (period === "custom") {
+      setSalesPeriod("custom");
+      return;
+    }
+    const now = new Date();
+    const iso = (date: Date) => format(date, "yyyy-MM-dd");
+    const range = period === "daily"
+      ? { from: now, to: now }
+      : period === "weekly"
+        ? { from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) }
+        : { from: startOfMonth(now), to: endOfMonth(now) };
+    setSalesPeriod(period);
+    setDateFrom(iso(range.from));
+    setDateTo(iso(range.to));
+  }
 
   const { data: sales = [], isLoading } = useListProductSales({
     search: search || undefined,
@@ -792,14 +811,23 @@ export default function ProductReports() {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              {([
+                ["daily", "Daily"],
+                ["weekly", "Weekly"],
+                ["monthly", "Monthly"],
+              ] as const).map(([period, label]) => (
+                <Button key={period} size="sm" variant={salesPeriod === period ? "default" : "outline"} onClick={() => setQuickPeriod(period)}>
+                  {label}
+                </Button>
+              ))}
               <div className="relative flex-1 min-w-[160px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input className="pl-9" placeholder="Customer search..." value={search} onChange={e => setSearch(e.target.value)} />
               </div>
-              <Input type="date" className="w-36" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-              <Input type="date" className="w-36" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+              <Input type="date" className="w-36" value={dateFrom} onChange={e => { setSalesPeriod("custom"); setDateFrom(e.target.value); }} />
+              <Input type="date" className="w-36" value={dateTo} onChange={e => { setSalesPeriod("custom"); setDateTo(e.target.value); }} />
               {(dateFrom || dateTo || search) && (
-                <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); }}>Clear</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); setSalesPeriod("custom"); }}>Clear</Button>
               )}
             </div>
             {isLoading ? <p className="text-muted-foreground text-sm text-center py-10">Loading...</p> : <SalesTable sales={sales} onViewBill={id => setBillSaleId(id)} />}
