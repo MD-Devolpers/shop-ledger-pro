@@ -5,6 +5,7 @@ import {
   useUpdateEntryProfit,
   getGetProfitReportQueryKey,
 } from "@workspace/api-client-react";
+import { useListProductReturns, useListProductSales } from "@/lib/inventory-api";
 import { TrendingUp, TrendingDown, Loader2, Save, ArrowDownCircle, CalendarDays, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,13 @@ function isCreditPayment(entry: Entry) {
   return (
     entry.description?.toLowerCase().includes("credit payment received from") ||
     entry.description?.toLowerCase().includes("payment received from")
+  );
+}
+
+function isProductSaleEntry(entry: Entry) {
+  return (
+    (entry.source === "product_sale" || entry.source === "mobile_sale") &&
+    !(entry.description ?? "").toLowerCase().startsWith("product return")
   );
 }
 
@@ -93,6 +101,11 @@ function ProfitEntryRow({
           {creditPayment && (
             <Badge className="text-[10px] px-1.5 py-0 h-4 bg-green-100 text-green-700 border-0 flex-shrink-0">
               Credit Payment
+            </Badge>
+          )}
+          {isProductSaleEntry(entry) && !creditPayment && (
+            <Badge className="text-[10px] px-1.5 py-0 h-4 bg-emerald-100 text-emerald-700 border-0 flex-shrink-0">
+              Product Sale
             </Badge>
           )}
           {entry.isCredit && !creditPayment && (
@@ -160,6 +173,13 @@ export default function Profits() {
     { period },
     { query: { queryKey: getGetProfitReportQueryKey({ period }) } }
   );
+  const salesDate = new Date();
+  if (period === "yesterday") salesDate.setDate(salesDate.getDate() - 1);
+  const { data: productSales = [] } = useListProductSales({
+    dateFrom: format(salesDate, "yyyy-MM-dd"),
+    dateTo: format(salesDate, "yyyy-MM-dd"),
+  });
+  const { data: allReturns = [] } = useListProductReturns();
 
   const updateProfit = useUpdateEntryProfit();
 
@@ -178,7 +198,11 @@ export default function Profits() {
     );
   };
 
-  const allEntries = (report?.entriesWithProfit ?? []).filter((e) => !isCreditPayment(e));
+  const rawEntries = (report?.entriesWithProfit ?? []).filter((e) => !isCreditPayment(e));
+  const returnEntry = (e: Entry) => (e.description ?? "").toLowerCase().startsWith("product return");
+  const saleEntries = rawEntries.filter(isProductSaleEntry);
+  const returnEntries = rawEntries.filter(returnEntry);
+  const allEntries = rawEntries.filter(e => !isProductSaleEntry(e) && !returnEntry(e));
   const profitEntries = allEntries.filter((e) => e.profit != null);
   const totalProfit = report?.totalProfit ?? 0;
 
@@ -186,16 +210,19 @@ export default function Profits() {
   // Entry profit is authoritative — manual profit edits on sale entries count here too.
   // Fallback to the "Mobile Sale:" description prefix for old rows without a source.
   const isSaleEntry = (e: Entry) =>
-    e.source === "product_sale" ||
-    e.source === "mobile_sale" ||
+    isProductSaleEntry(e) ||
     (e.source == null && (e.description ?? "").startsWith("Mobile Sale:"));
   const productProfit =
     Math.round(
-      allEntries
+      saleEntries
         .filter((e) => e.profit != null && isSaleEntry(e))
         .reduce((sum, e) => sum + (e.profit ?? 0), 0) * 100
     ) / 100;
-  const otherProfit = Math.round((totalProfit - productProfit) * 100) / 100;
+  const returnProfit = Math.round(returnEntries.reduce((sum, e) => sum + (e.profit ?? 0), 0) * 100) / 100;
+  const otherProfit = Math.round((totalProfit - productProfit - returnProfit) * 100) / 100;
+  const periodReturns = allReturns
+    .filter(item => format(new Date(item.returnDate), "yyyy-MM-dd") === format(salesDate, "yyyy-MM-dd"))
+    .sort((a, b) => new Date(b.returnDate).getTime() - new Date(a.returnDate).getTime());
 
   return (
     <div className="flex flex-col h-full">
@@ -297,6 +324,49 @@ export default function Profits() {
                           ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+
+                {productSales.length > 0 && (
+                  <div className="border rounded-xl mt-5 overflow-hidden">
+                    <div className="bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2">
+                      <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">
+                        Product Sale History — {period === "daily" ? "Today" : "Yesterday"}
+                      </p>
+                    </div>
+                    <div className="divide-y">
+                      {[...productSales].sort((a, b) => {
+                        const dateDiff = new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime();
+                        return dateDiff !== 0 ? dateDiff : b.id - a.id;
+                      }).map(sale => (
+                        <div key={sale.id} className="px-3 py-2 flex items-center gap-3">
+                          <Badge className="text-[10px] py-0 px-1.5 h-4 bg-emerald-100 text-emerald-700 border-0">Sale #{sale.id}</Badge>
+                          <p className="flex-1 min-w-0 text-xs truncate">
+                            {(sale.items ?? []).map(item => `${item.productName || "Product"} × ${item.quantity}`).join(", ")}
+                          </p>
+                          <span className="text-xs font-semibold text-emerald-700 whitespace-nowrap">{formatCurrency(sale.totalAmount)}</span>
+                          <span className="text-xs font-medium text-amber-700 whitespace-nowrap">Profit {formatCurrency(sale.totalProfit)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {periodReturns.length > 0 && (
+                  <div className="border rounded-xl mt-4 overflow-hidden">
+                    <div className="bg-orange-50 dark:bg-orange-950/20 px-3 py-2">
+                      <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide">
+                        Product Return History — {period === "daily" ? "Today" : "Yesterday"}
+                      </p>
+                    </div>
+                    <div className="divide-y">
+                      {periodReturns.map(item => (
+                        <div key={item.id} className="px-3 py-2 flex items-center gap-3">
+                          <Badge className="text-[10px] py-0 px-1.5 h-4 bg-orange-100 text-orange-700 border-0">Return</Badge>
+                          <p className="flex-1 min-w-0 text-xs truncate">{item.productName || "Product"} × {item.quantity}</p>
+                          <span className="text-xs font-semibold text-red-600 whitespace-nowrap">-{formatCurrency(item.returnAmount)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </>
