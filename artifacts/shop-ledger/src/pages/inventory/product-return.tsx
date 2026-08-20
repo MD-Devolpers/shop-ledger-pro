@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { useListProducts, useCreateProductReturn, useListProductReturns } from "@/lib/inventory-api";
+import { useMemo, useState } from "react";
+import { useCreateProductReturn, useListProductReturns, useListProductSales } from "@/lib/inventory-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { RotateCcw, Search, RefreshCw } from "lucide-react";
+import { RotateCcw, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -16,35 +16,83 @@ function formatCurrency(n: number) {
 export default function ProductReturn() {
   const { toast } = useToast();
   const [productSearch, setProductSearch] = useState("");
+  const [selectedSaleId, setSelectedSaleId] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
   const [quantity, setQuantity] = useState("1");
-  const [returnAmount, setReturnAmount] = useState("");
   const [reason, setReason] = useState("");
   const [isResalable, setIsResalable] = useState(true);
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "digital">("cash");
 
-  const { data: products = [] } = useListProducts({ search: productSearch || undefined });
+  const { data: sales = [] } = useListProductSales();
   const { data: returns = [] } = useListProductReturns();
   const createReturn = useCreateProductReturn();
 
-  const selectedProduct = products.find(p => p.id.toString() === selectedProductId);
+  const productOptions = useMemo(() => {
+    const products = new Map<number, { id: number; name: string; code: string }>();
+    sales.forEach(sale => sale.items?.forEach(item => {
+      if (!products.has(item.productId)) {
+        products.set(item.productId, {
+          id: item.productId,
+          name: item.productName || "Product",
+          code: item.productCode || "—",
+        });
+      }
+    }));
+    return [...products.values()];
+  }, [sales]);
+  const matchingProducts = productOptions.filter(product => {
+    const query = productSearch.trim().toLowerCase();
+    return !query || product.name.toLowerCase().includes(query) || product.code.toLowerCase().includes(query);
+  });
+  const selectedSale = sales.find(s => s.id.toString() === selectedSaleId);
+  const selectedItem = selectedSale?.items?.find(item => item.productId.toString() === selectedProductId);
+  const returnLots = useMemo(() => sales
+    .map(sale => {
+      const item = sale.items?.find(line => line.productId.toString() === selectedProductId);
+      if (!item) return null;
+      const alreadyReturned = returns
+        .filter((entry: any) => entry.saleId === sale.id && entry.productId === item.productId)
+        .reduce((total: number, entry: any) => total + entry.quantity, 0);
+      const soldQty = item.quantity;
+      const remainingQty = Math.max(0, soldQty - alreadyReturned);
+      const saleLinesTotal = sale.items?.reduce((total, line) => total + line.lineTotal, 0) ?? 0;
+      const paidLineTotal = saleLinesTotal > 0 ? item.lineTotal * (sale.totalAmount / saleLinesTotal) : item.lineTotal;
+      return {
+        saleId: sale.id,
+        remainingQty,
+        refundPerUnit: soldQty > 0 ? paidLineTotal / soldQty : 0,
+      };
+    })
+    .filter((lot): lot is { saleId: number; remainingQty: number; refundPerUnit: number } => lot !== null && lot.remainingQty > 0)
+    .sort((a, b) => a.saleId - b.saleId), [sales, returns, selectedProductId]);
+  const maxReturnQty = Math.floor(returnLots.reduce((total, lot) => total + lot.remainingQty, 0) + 0.000001);
+  const qty = parseFloat(quantity) || 0;
+  let remainingForPreview = qty;
+  const returnAmount = Math.round(returnLots.reduce((total, lot) => {
+    if (remainingForPreview <= 0) return total;
+    const allocated = Math.min(remainingForPreview, lot.remainingQty);
+    remainingForPreview -= allocated;
+    return total + allocated * lot.refundPerUnit;
+  }, 0) * 100) / 100;
 
   function handleSubmit() {
-    if (!selectedProductId) { toast({ title: "Please select a product", variant: "destructive" }); return; }
-    if (!quantity || parseFloat(quantity) <= 0) { toast({ title: "Please enter a valid quantity", variant: "destructive" }); return; }
+    if (!selectedProductId || maxReturnQty < 1) { toast({ title: "Please select a product with available sale quantity", variant: "destructive" }); return; }
+    if (!quantity || qty <= 0 || !Number.isInteger(qty)) {
+      toast({ title: "Return quantity must be a whole number (1, 2, 3...)", variant: "destructive" });
+      return;
+    }
+    if (qty > maxReturnQty) { toast({ title: `Only ${maxReturnQty} can be returned from this sale`, variant: "destructive" }); return; }
 
     createReturn.mutate({
       productId: parseInt(selectedProductId),
-      quantity: parseFloat(quantity),
-      returnAmount: parseFloat(returnAmount) || 0,
+      quantity: qty,
       reason: reason.trim() || undefined,
       isResalable,
       paymentMethod,
     }, {
       onSuccess: () => {
-        toast({ title: "✅ Product return saved", description: "Stock has been added back" });
-        setSelectedProductId(""); setQuantity("1"); setReturnAmount(""); setReason("");
-        setProductSearch(""); setIsResalable(true);
+        toast({ title: "✅ Product return saved", description: `${formatCurrency(returnAmount)} refunded and stock added back` });
+        setSelectedSaleId(""); setSelectedProductId(""); setQuantity("1"); setReason(""); setIsResalable(true);
       },
       onError: e => toast({ title: "Error", description: (e as Error).message, variant: "destructive" }),
     });
@@ -58,36 +106,86 @@ export default function ProductReturn() {
       </div>
 
       <div className="border rounded-xl p-5 bg-card space-y-4">
-        <div>
-          <Label>Product Search</Label>
-          <div className="relative mt-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Product name ya code..." value={productSearch} onChange={e => { setProductSearch(e.target.value); setSelectedProductId(""); }} />
+        <div className="grid gap-3">
+          <div>
+            <Label>Product Search</Label>
+            <Input
+              className="mt-1"
+              placeholder="Search product name or code..."
+              value={productSearch}
+              onChange={e => {
+                setProductSearch(e.target.value);
+                setSelectedProductId("");
+                setSelectedSaleId("");
+                setQuantity("1");
+              }}
+            />
+            {productSearch.trim() && !selectedProductId && matchingProducts.length > 0 && (
+              <div className="mt-1 border rounded-lg overflow-hidden">
+                {matchingProducts.slice(0, 8).map(product => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    className="w-full text-left px-3 py-2 hover:bg-muted flex justify-between text-sm"
+                    onClick={() => {
+                    const nextSale = sales.find(sale => {
+                      const item = sale.items?.find(line => line.productId === product.id);
+                      if (!item) return false;
+                      const returned = returns
+                        .filter((entry: any) => entry.saleId === sale.id && entry.productId === product.id)
+                        .reduce((total: number, entry: any) => total + entry.quantity, 0);
+                      return item.quantity - returned > 0;
+                    });
+                      setProductSearch(product.name);
+                      setSelectedProductId(product.id.toString());
+                    setSelectedSaleId(nextSale?.id.toString() || "");
+                      setQuantity("1");
+                    }}
+                  >
+                    <span>{product.name} <span className="text-muted-foreground font-mono text-xs">({product.code})</span></span>
+                    <span className="text-primary text-xs">Select</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedProductId && (
+              <div className="mt-1 flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                <span>Selected: <strong>{productOptions.find(product => product.id.toString() === selectedProductId)?.name}</strong></span>
+                <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
+                  setProductSearch("");
+                  setSelectedProductId("");
+                  setSelectedSaleId("");
+                  setQuantity("1");
+                }}>Change</Button>
+              </div>
+            )}
           </div>
-          {productSearch && !selectedProductId && (
-            <div className="mt-1 border rounded-lg overflow-hidden">
-              {products.slice(0, 8).map(p => (
-                <button key={p.id} onClick={() => { setSelectedProductId(p.id.toString()); setProductSearch(p.name); setReturnAmount(p.salePrice.toString()); }}
-                  className="w-full text-left px-3 py-2 hover:bg-muted flex justify-between text-sm">
-                  <span>{p.name} <span className="text-muted-foreground font-mono text-xs">({p.code})</span></span>
-                  <span className="text-muted-foreground">Stock: {p.stockQty}</span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
-        {selectedProduct && (
-          <div className="p-3 rounded-lg bg-muted/40 text-sm flex flex-wrap gap-3">
-            <span>Purchase: <strong>{formatCurrency(selectedProduct.purchasePrice)}</strong></span>
-            <span>Sale: <strong>{formatCurrency(selectedProduct.salePrice)}</strong></span>
-            <span>Current Stock: <strong>{selectedProduct.stockQty}</strong></span>
-          </div>
-        )}
-
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Return Quantity</Label><Input type="number" min="0.001" step="0.001" value={quantity} onChange={e => setQuantity(e.target.value)} /></div>
-          <div><Label>Return Amount (Rs)</Label><Input type="number" min="0" value={returnAmount} onChange={e => setReturnAmount(e.target.value)} placeholder="Amount to refund customer" /></div>
+          <div>
+            <Label>Return Quantity (whole units)</Label>
+            <Input
+              className="mt-1"
+              type="text"
+              inputMode="numeric"
+              pattern="[1-9][0-9]*"
+              placeholder="Enter quantity"
+              value={quantity}
+              disabled={!selectedProductId || maxReturnQty < 1}
+              onKeyDown={e => {
+                if ([".", ",", "e", "E", "+", "-"].includes(e.key)) e.preventDefault();
+              }}
+              onPaste={e => {
+                if (!/^[1-9]\d*$/.test(e.clipboardData.getData("text").trim())) e.preventDefault();
+              }}
+              onChange={e => {
+                const nextValue = e.target.value;
+                if (nextValue === "" || /^[1-9]\d*$/.test(nextValue)) setQuantity(nextValue);
+              }}
+            />
+          </div>
+          <div><Label>Return Amount (Rs)</Label><Input readOnly value={selectedProductId ? returnAmount.toFixed(2) : ""} placeholder="Automatically calculated from the sales" /></div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -107,11 +205,11 @@ export default function ProductReturn() {
             <label htmlFor="resalable" className="text-sm font-medium cursor-pointer flex items-center gap-1.5">
               <RefreshCw className="h-3.5 w-3.5 text-green-600" />Resalable
             </label>
-            <p className="text-xs text-muted-foreground mt-0.5">Used but good condition — resalable (will be added back to stock)</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Return stock is added back automatically; this marks its condition for history.</p>
           </div>
         </div>
 
-        <Button className="w-full" size="lg" onClick={handleSubmit} disabled={createReturn.isPending || !selectedProductId}>
+        <Button className="w-full" size="lg" onClick={handleSubmit} disabled={createReturn.isPending || !selectedProductId || qty <= 0 || qty > maxReturnQty}>
           <RotateCcw className="h-4 w-4 mr-2" />
           {createReturn.isPending ? "Saving..." : "Save Return"}
         </Button>
