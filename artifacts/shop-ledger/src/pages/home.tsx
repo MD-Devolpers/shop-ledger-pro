@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import EditEntryDialog from "@/components/edit-entry-dialog";
+import { useListProductReturns, useListProductSales, type ProductSale } from "@/lib/inventory-api";
 
 const entrySchema = z.object({
   amount: z.coerce.number().positive("Amount must be positive"),
@@ -67,11 +68,29 @@ export default function Home() {
   const { data: todayEntries, isLoading: entriesLoading } = useListEntries({
     date: new Date().toISOString().split("T")[0],
   });
+  const { data: productSales = [] } = useListProductSales();
+  const { data: productReturns = [] } = useListProductReturns();
   // Fetch all customers (no filter) for the dropdown list
   const { data: allCustomers } = useListCustomers({});
   // Fetch filtered customers when user types
   const { data: filteredCustomers } = useListCustomers({ q: customerSearch });
   const customers = customerSearch ? filteredCustomers : allCustomers;
+  const salesByEntryId = new Map<number, ProductSale>(
+    productSales.filter(sale => sale.entryId != null).map(sale => [sale.entryId as number, sale])
+  );
+  const todayProductSales = productSales.filter(sale =>
+    format(new Date(sale.saleDate), "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd")
+  ).sort((a, b) => {
+    const dateDiff = new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime();
+    return dateDiff !== 0 ? dateDiff : b.id - a.id;
+  });
+  const todayProductReturns = productReturns
+    .filter(item => format(new Date(item.returnDate), "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd"))
+    .sort((a, b) => new Date(b.returnDate).getTime() - new Date(a.returnDate).getTime());
+  const todayLedgerEntries = (todayEntries ?? []).filter(entry =>
+    !(entry.source === "product_sale" && !(entry.description ?? "").toLowerCase().startsWith("product return")) &&
+    !(entry.description ?? "").toLowerCase().startsWith("product return")
+  );
 
   const createEntry = useCreateEntry();
   const deleteEntry = useDeleteEntry();
@@ -320,7 +339,7 @@ export default function Home() {
         <div className="bg-card border rounded-xl p-3 text-center">
           <p className="text-xs text-muted-foreground">Total Credit</p>
           <p className="text-lg font-bold text-amber-600" data-testid="total-credit">
-            {formatCurrency(summary?.creditBalance ?? 0)}
+            {formatCurrency(summary?.totalCredit ?? 0)}
           </p>
         </div>
       </div>
@@ -336,7 +355,7 @@ export default function Home() {
               <div key={i} className="h-16 bg-card border rounded-xl animate-pulse" />
             ))}
           </div>
-        ) : !todayEntries || todayEntries.length === 0 ? (
+        ) : todayLedgerEntries.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Wallet className="h-12 w-12 mx-auto mb-3 opacity-30" />
             <p className="font-medium">No entries today</p>
@@ -344,7 +363,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-2">
-            {[...todayEntries].sort((a, b) => {
+              {[...todayLedgerEntries].sort((a, b) => {
                 const dt = new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime();
                 return dt !== 0 ? dt : b.id - a.id;
               }).map((entry) => (
@@ -369,6 +388,11 @@ export default function Home() {
                     <p className="text-sm font-medium truncate">
                       {entry.description || (entry.type === "cash_in" ? "Cash In" : "Cash Out")}
                     </p>
+                    {salesByEntryId.has(entry.id) && (
+                      <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 border-emerald-300 text-emerald-700">
+                        Sale #{salesByEntryId.get(entry.id)?.id}
+                      </Badge>
+                    )}
                     {entry.paymentMethod === "digital" && (
                       <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4 bg-blue-100 text-blue-700">
                         Digital
@@ -382,6 +406,11 @@ export default function Home() {
                   </div>
                   {entry.customerName && (
                     <p className="text-xs text-muted-foreground">{entry.customerName}</p>
+                  )}
+                  {salesByEntryId.get(entry.id)?.items && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      {salesByEntryId.get(entry.id)!.items!.map(item => `${item.productName || "Product"} × ${item.quantity}`).join(", ")}
+                    </p>
                   )}
                   <p className="text-xs text-muted-foreground">
                     {format(new Date(entry.entryDate), "h:mm a")}
@@ -444,6 +473,65 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {todayProductSales.length > 0 && (
+        <div className="px-4 mt-2 pb-4">
+          <h3 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+            Today&apos;s Product Sale History
+          </h3>
+          <div className="space-y-2">
+            {todayProductSales.map(sale => (
+              <div key={sale.id} className="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                  <ShoppingCart className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium">Sale #{sale.id}</p>
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4 border-emerald-300 text-emerald-700">
+                      Product Sale
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {(sale.items ?? []).map(item => `${item.productName || "Product"} × ${item.quantity}`).join(", ")}
+                  </p>
+                </div>
+                <div className="text-right whitespace-nowrap">
+                  <p className="font-bold text-emerald-700">{formatCurrency(sale.totalAmount)}</p>
+                  <p className="text-xs text-amber-700">Profit {formatCurrency(sale.totalProfit)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {todayProductReturns.length > 0 && (
+        <div className="px-4 mt-2 pb-4">
+          <h3 className="text-sm font-semibold text-orange-700 mb-2 uppercase tracking-wide">
+            Today&apos;s Product Return History
+          </h3>
+          <div className="space-y-2">
+            {todayProductReturns.map(item => (
+              <div key={item.id} className="bg-orange-50/60 border border-orange-100 rounded-xl p-3 flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center flex-shrink-0">
+                  <RotateCcw className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{item.productName || "Product"} × {item.quantity}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Return from Sale #{item.saleId} · {format(new Date(item.returnDate), "h:mm a")}
+                  </p>
+                </div>
+                <div className="text-right whitespace-nowrap">
+                  <p className="font-bold text-red-600">-{formatCurrency(item.returnAmount)}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{item.paymentMethod}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Entry Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
