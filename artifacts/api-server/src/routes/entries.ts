@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, gte, lte, isNull, isNotNull, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, isNull, isNotNull, desc, sql, inArray } from "drizzle-orm";
 import { db, entriesTable, creditsTable } from "@workspace/db";
 import {
   CreateEntryBody,
@@ -96,22 +96,45 @@ router.post("/entries", requireAuth, async (req, res): Promise<void> => {
 
   const { type, amount, description, paymentMethod, profit, isCredit, isFundOperation, customerName, contactNumber, entryDate } = parsed.data;
 
-  const [entry] = await db
-    .insert(entriesTable)
-    .values({
-      userId,
-      type,
-      amount: amount.toString(),
-      description: description ?? null,
-      paymentMethod: paymentMethod ?? "cash",
-      profit: profit != null ? profit.toString() : null,
-      isCredit: isCredit ?? false,
-      isFundOperation: isFundOperation ?? false,
-      customerName: customerName ?? null,
-      contactNumber: contactNumber ?? null,
-      entryDate: entryDate ? new Date(entryDate) : new Date(),
-    })
-    .returning();
+  const [entry] = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(entriesTable)
+      .values({
+        userId,
+        type,
+        amount: amount.toString(),
+        description: description ?? null,
+        paymentMethod: paymentMethod ?? "cash",
+        profit: profit != null ? profit.toString() : null,
+        isCredit: isCredit ?? false,
+        isFundOperation: isFundOperation ?? false,
+        customerName: customerName ?? null,
+        contactNumber: contactNumber ?? null,
+        entryDate: entryDate ? new Date(entryDate) : new Date(),
+      })
+      .returning();
+
+    // This adjustment deliberately leaves the original purchase credit intact.
+    // The shared entry ID makes the balance reversal safe on delete/restore.
+    if (
+      type === "cash_out" &&
+      !isCredit &&
+      customerName &&
+      description?.startsWith("Payment to supplier ")
+    ) {
+      await tx.insert(creditsTable).values({
+        userId,
+        customerName,
+        amount: (-amount).toString(),
+        description: `Supplier payment adjustment for entry #${created.id}`,
+        entryId: created.id,
+        type: "received",
+        status: "pending",
+      });
+    }
+
+    return [created] as const;
+  });
 
   // Auto-save to credits table when entry is marked as credit with a customer name
   if (isCredit && customerName) {
@@ -222,10 +245,18 @@ router.patch("/entries/:id", requireAuth, async (req, res): Promise<void> => {
 
 router.delete("/entries/permanent-all", requireAuth, async (req, res): Promise<void> => {
   const userId = req.session!.userId!;
-  const result = await db
-    .delete(entriesTable)
-    .where(and(eq(entriesTable.userId, userId), isNotNull(entriesTable.deletedAt)))
-    .returning({ id: entriesTable.id });
+  const result = await db.transaction(async (tx) => {
+    const deleted = await tx
+      .delete(entriesTable)
+      .where(and(eq(entriesTable.userId, userId), isNotNull(entriesTable.deletedAt)))
+      .returning({ id: entriesTable.id });
+    if (deleted.length > 0) {
+      await tx
+        .delete(creditsTable)
+        .where(and(eq(creditsTable.userId, userId), inArray(creditsTable.entryId, deleted.map(entry => entry.id))));
+    }
+    return deleted;
+  });
   res.json({ message: "All deleted permanently", count: result.length });
 });
 
@@ -237,11 +268,19 @@ router.delete("/entries/:id", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const [entry] = await db
-    .update(entriesTable)
-    .set({ deletedAt: new Date() })
-    .where(and(eq(entriesTable.id, params.data.id), eq(entriesTable.userId, userId), isNull(entriesTable.deletedAt)))
-    .returning();
+  const entry = await db.transaction(async (tx) => {
+    const [deleted] = await tx
+      .update(entriesTable)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(entriesTable.id, params.data.id), eq(entriesTable.userId, userId), isNull(entriesTable.deletedAt)))
+      .returning();
+    if (!deleted) return null;
+    await tx
+      .update(creditsTable)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(creditsTable.userId, userId), eq(creditsTable.entryId, deleted.id), isNull(creditsTable.deletedAt)));
+    return deleted;
+  });
 
   if (!entry) {
     res.status(404).json({ error: "Entry not found" });
@@ -256,10 +295,17 @@ router.delete("/entries/:id/permanent", requireAuth, async (req, res): Promise<v
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [deleted] = await db
-    .delete(entriesTable)
-    .where(and(eq(entriesTable.id, id), eq(entriesTable.userId, userId), isNotNull(entriesTable.deletedAt)))
-    .returning({ id: entriesTable.id });
+  const deleted = await db.transaction(async (tx) => {
+    const [removed] = await tx
+      .delete(entriesTable)
+      .where(and(eq(entriesTable.id, id), eq(entriesTable.userId, userId), isNotNull(entriesTable.deletedAt)))
+      .returning({ id: entriesTable.id });
+    if (!removed) return null;
+    await tx
+      .delete(creditsTable)
+      .where(and(eq(creditsTable.userId, userId), eq(creditsTable.entryId, id)));
+    return removed;
+  });
 
   if (!deleted) {
     res.status(404).json({ error: "Entry not found or not deleted" });
@@ -277,11 +323,19 @@ router.patch("/entries/:id/restore", requireAuth, async (req, res): Promise<void
     return;
   }
 
-  const [entry] = await db
-    .update(entriesTable)
-    .set({ deletedAt: null })
-    .where(and(eq(entriesTable.id, params.data.id), eq(entriesTable.userId, userId)))
-    .returning();
+  const entry = await db.transaction(async (tx) => {
+    const [restored] = await tx
+      .update(entriesTable)
+      .set({ deletedAt: null })
+      .where(and(eq(entriesTable.id, params.data.id), eq(entriesTable.userId, userId)))
+      .returning();
+    if (!restored) return null;
+    await tx
+      .update(creditsTable)
+      .set({ deletedAt: null })
+      .where(and(eq(creditsTable.userId, userId), eq(creditsTable.entryId, restored.id)));
+    return restored;
+  });
 
   if (!entry) {
     res.status(404).json({ error: "Entry not found" });
