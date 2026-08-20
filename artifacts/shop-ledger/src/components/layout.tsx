@@ -50,12 +50,19 @@ const moreItems = [
   { icon: Wallet, label: "Closing", href: "/closing" },
   { icon: FileBarChart2, label: "Digital Report", href: "/digital-report" },
   { icon: Package, label: "Inventory", href: "/inventory" },
+  { icon: ListOrdered, label: "Products", href: "/inventory/products" },
+  { icon: ShoppingCart, label: "Product Sale", href: "/inventory/product-sale" },
+  { icon: ClipboardList, label: "Purchase Report", href: "/inventory/purchase-bills" },
+  { icon: RotateCcw, label: "Product Return", href: "/inventory/product-return" },
+  { icon: Building2, label: "Supplier Credit", href: "/inventory/supplier-balance" },
   { icon: Star, label: "Quick Products", href: "/inventory/quick-products" },
   { icon: FileBarChart, label: "Prod. Reports", href: "/inventory/product-reports" },
   { icon: PackageX, label: "Replacements", href: "/inventory/company-replacements" },
 
   { icon: ShieldCheck, label: "Warranty Check", href: "/inventory/warranty-check" },
   { icon: Cpu, label: "Mobile Purchase", href: "/inventory/mobile-purchase" },
+  { icon: Building2, label: "Masters", href: "/inventory/masters" },
+  { icon: Store, label: "Bill Settings", href: "/inventory/bill-settings" },
   { icon: Trash2, label: "Recycle Bin", href: "/recycle-bin" },
   { icon: DatabaseBackup, label: "Backup", href: "/backup" },
   { icon: Settings, label: "Settings", href: "/settings" },
@@ -294,7 +301,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             onClick={() => setMoreOpen(false)}
           />
           {/* Sheet */}
-          <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-card rounded-t-2xl shadow-2xl border-t">
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 max-h-[88dvh] overflow-y-auto bg-card rounded-t-2xl shadow-2xl border-t">
             {/* Handle */}
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
