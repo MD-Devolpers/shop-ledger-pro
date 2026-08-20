@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS credits (
   phone text,
   amount numeric(12,2) NOT NULL,
   description text,
+  entry_id integer,
   type text NOT NULL CHECK (type IN ('given','received')),
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid')),
   due_date timestamptz,
@@ -55,6 +56,8 @@ CREATE TABLE IF NOT EXISTS credits (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE credits ADD COLUMN IF NOT EXISTS entry_id integer;
+CREATE INDEX IF NOT EXISTS credits_entry_id_idx ON credits (entry_id) WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS closings (
   id serial PRIMARY KEY,
