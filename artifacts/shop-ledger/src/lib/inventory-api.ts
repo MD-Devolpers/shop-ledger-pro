@@ -8,6 +8,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 export interface Company { id: number; userId: number; name: string; createdAt: string; updatedAt: string; }
 export interface Category { id: number; userId: number; name: string; createdAt: string; updatedAt: string; }
 export interface Collection { id: number; userId: number; name: string; createdAt: string; updatedAt: string; }
+export interface MasterDeleteResult { deleted: true; transferredProducts: number; }
+
+export class ApiError extends Error {
+  status: number;
+  data: Record<string, unknown>;
+
+  constructor(status: number, data: Record<string, unknown>) {
+    super(typeof data.error === "string" ? data.error : `API error ${status}`);
+    this.name = "ApiError";
+    this.status = status;
+    this.data = data;
+  }
+}
 
 export interface Product {
   id: number; userId: number; code: string; name: string;
@@ -102,8 +115,8 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `API error ${res.status}`);
+    const body = await res.json().catch(() => ({})) as Record<string, unknown>;
+    throw new ApiError(res.status, body);
   }
   if (res.status === 204) return undefined as T;
   return res.json();
@@ -160,8 +173,15 @@ export function useUpdateCategory() {
 export function useDeleteCategory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => apiFetch<void>(`/api/inventory/categories/${id}`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: CATEGORIES_KEY }),
+    mutationFn: ({ id, replacementId }: { id: number; replacementId?: number }) =>
+      apiFetch<MasterDeleteResult>(`/api/inventory/categories/${id}`, {
+        method: "DELETE",
+        body: replacementId ? JSON.stringify({ replacementId }) : undefined,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CATEGORIES_KEY });
+      qc.invalidateQueries({ queryKey: PRODUCTS_KEY });
+    },
   });
 }
 
@@ -188,8 +208,15 @@ export function useUpdateCollection() {
 export function useDeleteCollection() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => apiFetch<void>(`/api/inventory/collections/${id}`, { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: COLLECTIONS_KEY }),
+    mutationFn: ({ id, replacementId }: { id: number; replacementId?: number }) =>
+      apiFetch<MasterDeleteResult>(`/api/inventory/collections/${id}`, {
+        method: "DELETE",
+        body: replacementId ? JSON.stringify({ replacementId }) : undefined,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: COLLECTIONS_KEY });
+      qc.invalidateQueries({ queryKey: PRODUCTS_KEY });
+    },
   });
 }
 
