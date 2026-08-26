@@ -15,7 +15,7 @@ import {
 import {
   Users, Plus, Loader2, CheckCircle2, Trash2, Banknote, Smartphone,
   ArrowDownCircle, ArrowUpCircle, Wallet, Phone, Search, X, ChevronRight,
-  Building2, ShoppingCart,
+  Building2, ShoppingCart, Printer, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,66 @@ type LedgerEntry = {
   paymentMethod: string; isCredit: boolean; customerName?: string | null; entryDate: string;
 };
 
+function statementRows(credits: Credit[], entries: LedgerEntry[], side: "customer" | "supplier") {
+  return [
+    ...credits.filter(c => !c.description?.includes("payment adjustment for entry #")).map(c => ({
+      date: new Date(c.createdAt),
+      type: side === "customer" ? "Credit Given" : "Purchase Credit",
+      description: c.description || "Credit entry",
+      amount: c.amount,
+      direction: "credit" as const,
+      status: c.status === "pending" ? "Outstanding" : "Cleared",
+    })),
+    ...entries.filter(e => !e.isCredit).map(e => ({
+      date: new Date(e.entryDate),
+      type: side === "customer" ? "Payment Received" : "Payment Made",
+      description: e.description || "Payment",
+      amount: e.amount,
+      direction: "payment" as const,
+      status: "Paid",
+    })),
+  ].sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
+function printCreditStatement(name: string, side: "customer" | "supplier", balance: number, rows: ReturnType<typeof statementRows>) {
+  const popup = window.open("", "_blank", "width=900,height=700");
+  if (!popup) return;
+  const title = side === "customer" ? "Customer Credit Statement" : "Supplier Credit Statement";
+  popup.document.write(`<!doctype html><html><head><title>${title}</title><style>
+    body{font-family:Arial,sans-serif;color:#0f172a;padding:32px}h1{margin:0;font-size:24px}
+    .meta{display:flex;justify-content:space-between;border-bottom:2px solid #0f172a;padding-bottom:16px;margin-bottom:20px}
+    .balance{text-align:right}.balance strong{display:block;font-size:22px;color:${side === "customer" ? "#dc2626" : "#b45309"}}
+    table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px;border-bottom:1px solid #cbd5e1;text-align:left}
+    th{background:#f1f5f9}td.amount,th.amount{text-align:right}footer{margin-top:28px;color:#64748b;font-size:11px}
+  </style></head><body><div class="meta"><div><h1>${title}</h1><p>${name}</p></div>
+  <div class="balance">Outstanding Balance<strong>${fmt(balance)}</strong></div></div>
+  <table><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Status</th><th class="amount">Amount</th></tr></thead><tbody>
+  ${rows.map(r => `<tr><td>${format(r.date, "dd MMM yyyy, h:mm a")}</td><td>${r.type}</td><td>${r.description}</td><td>${r.status}</td><td class="amount">${r.direction === "payment" ? "-" : ""}${fmt(r.amount)}</td></tr>`).join("")}
+  </tbody></table><footer>Generated ${format(new Date(), "dd MMM yyyy, h:mm a")} · Shop Ledger Pro</footer></body></html>`);
+  popup.document.close();
+  popup.focus();
+  setTimeout(() => popup.print(), 250);
+}
+
+async function downloadCreditStatement(name: string, side: "customer" | "supplier", balance: number, rows: ReturnType<typeof statementRows>) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF();
+  const title = side === "customer" ? "Customer Credit Statement" : "Supplier Credit Statement";
+  doc.setFontSize(18); doc.text(title, 14, 18);
+  doc.setFontSize(12); doc.text(name, 14, 27);
+  doc.setFontSize(11); doc.text(`Outstanding Balance: ${fmt(balance)}`, 14, 36);
+  doc.setFontSize(9);
+  let y = 48;
+  rows.forEach(r => {
+    if (y > 280) { doc.addPage(); y = 18; }
+    const description = `${format(r.date, "dd MMM yyyy")}  ${r.type}  ${r.description}`.slice(0, 82);
+    doc.text(description, 14, y);
+    doc.text(`${r.direction === "payment" ? "-" : ""}${fmt(r.amount)}`, 196, y, { align: "right" });
+    y += 7;
+  });
+  doc.save(`${side}-${name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-statement.pdf`);
+}
+
 // ─── Customer Detail Dialog ────────────────────────────────────────────────────
 function CustomerDetailDialog({
   customerName, credits, ledgerEntries, open, onClose,
@@ -58,14 +118,14 @@ function CustomerDetailDialog({
 
   const balance = credits.filter(c => c.type === "given" && c.status === "pending").reduce((s, c) => s + c.amount, 0);
   const collected = ledgerEntries.filter(e => !e.isCredit && e.type === "cash_in").reduce((s, e) => s + e.amount, 0);
-  const totalCredit = balance + collected + credits.filter(c => c.type === "given" && c.status === "paid").reduce((s, c) => s + c.amount, 0);
   const phone = credits.find(c => c.phone)?.phone;
 
   type TimelineItem = { kind: "credit"; data: Credit; date: Date } | { kind: "entry"; data: LedgerEntry; date: Date };
   const timeline: TimelineItem[] = [
-    ...credits.map(c => ({ kind: "credit" as const, data: c, date: new Date(c.createdAt) })),
+    ...credits.filter(c => !c.description?.includes("payment adjustment for entry #")).map(c => ({ kind: "credit" as const, data: c, date: new Date(c.createdAt) })),
     ...ledgerEntries.map(e => ({ kind: "entry" as const, data: e, date: new Date(e.entryDate) })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const printableRows = statementRows(credits, ledgerEntries, "customer");
 
   function handleCollect() {
     const amt = parseFloat(collectAmount);
@@ -90,7 +150,11 @@ function CustomerDetailDialog({
               <p className="font-bold text-lg">{customerName}</p>
               {phone && <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5"><Phone className="h-3 w-3" />{phone}</p>}
             </div>
-            <div className="ml-auto flex items-center gap-3">
+            <div className="ml-auto flex items-center gap-2">
+              <button title="Download PDF" onClick={() => downloadCreditStatement(customerName, "customer", balance, printableRows)}
+                className="h-8 px-2 rounded border border-slate-600 text-slate-200 hover:bg-slate-700 flex items-center gap-1 text-xs"><Download className="h-3.5 w-3.5" />PDF</button>
+              <button title="Print statement" onClick={() => printCreditStatement(customerName, "customer", balance, printableRows)}
+                className="h-8 px-2 rounded border border-slate-600 text-slate-200 hover:bg-slate-700 flex items-center gap-1 text-xs"><Printer className="h-3.5 w-3.5" />Print</button>
               <div className="text-right hidden sm:block">
                 <p className="text-xs text-slate-400">Outstanding Balance</p>
                 <p className={`text-xl font-bold ${balance > 0 ? "text-red-300" : "text-green-300"}`}>{fmt(balance)}</p>
@@ -102,7 +166,7 @@ function CustomerDetailDialog({
 
         {/* Summary + Collect */}
         <div className="px-5 py-3 border-b bg-slate-50 flex-shrink-0 space-y-3">
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
               <p className="text-[10px] text-red-500 font-bold uppercase tracking-wide">Balance Due</p>
               <p className="text-lg font-bold text-red-700 mt-0.5">{fmt(balance)}</p>
@@ -110,10 +174,6 @@ function CustomerDetailDialog({
             <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
               <p className="text-[10px] text-green-600 font-bold uppercase tracking-wide">Collected</p>
               <p className="text-lg font-bold text-green-700 mt-0.5">{fmt(collected)}</p>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
-              <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wide">Total Credit</p>
-              <p className="text-lg font-bold text-blue-700 mt-0.5">{fmt(totalCredit)}</p>
             </div>
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Transactions</p>
@@ -301,14 +361,14 @@ function SupplierDetailDialog({
 
   const remaining = credits.filter(c => c.type === "received" && c.status === "pending").reduce((s, c) => s + c.amount, 0);
   const paid = ledgerEntries.filter(e => !e.isCredit && e.type === "cash_out").reduce((s, e) => s + e.amount, 0);
-  const totalOwed = remaining + paid + credits.filter(c => c.type === "received" && c.status === "paid").reduce((s, c) => s + c.amount, 0);
   const phone = credits.find(c => c.phone)?.phone;
 
   type TimelineItem = { kind: "credit"; data: Credit; date: Date } | { kind: "entry"; data: LedgerEntry; date: Date };
   const timeline: TimelineItem[] = [
-    ...credits.map(c => ({ kind: "credit" as const, data: c, date: new Date(c.createdAt) })),
+    ...credits.filter(c => !c.description?.includes("payment adjustment for entry #")).map(c => ({ kind: "credit" as const, data: c, date: new Date(c.createdAt) })),
     ...ledgerEntries.map(e => ({ kind: "entry" as const, data: e, date: new Date(e.entryDate) })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
+  const printableRows = statementRows(credits, ledgerEntries, "supplier");
 
   function handlePay() {
     const amt = parseFloat(payAmount);
@@ -334,7 +394,11 @@ function SupplierDetailDialog({
               {phone && <p className="text-xs text-blue-300 flex items-center gap-1.5 mt-0.5"><Phone className="h-3 w-3" />{phone}</p>}
               <p className="text-[11px] text-blue-300 mt-0.5">Supplier / Purchase Credit</p>
             </div>
-            <div className="ml-auto flex items-center gap-3">
+            <div className="ml-auto flex items-center gap-2">
+              <button title="Download PDF" onClick={() => downloadCreditStatement(supplierName, "supplier", remaining, printableRows)}
+                className="h-8 px-2 rounded border border-blue-700 text-blue-100 hover:bg-blue-800 flex items-center gap-1 text-xs"><Download className="h-3.5 w-3.5" />PDF</button>
+              <button title="Print statement" onClick={() => printCreditStatement(supplierName, "supplier", remaining, printableRows)}
+                className="h-8 px-2 rounded border border-blue-700 text-blue-100 hover:bg-blue-800 flex items-center gap-1 text-xs"><Printer className="h-3.5 w-3.5" />Print</button>
               <div className="text-right hidden sm:block">
                 <p className="text-xs text-blue-300">You Owe</p>
                 <p className={`text-xl font-bold ${remaining > 0 ? "text-amber-300" : "text-green-300"}`}>{fmt(remaining)}</p>
@@ -346,7 +410,7 @@ function SupplierDetailDialog({
 
         {/* Summary + Pay */}
         <div className="px-5 py-3 border-b bg-blue-50 flex-shrink-0 space-y-3">
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
               <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wide">You Owe</p>
               <p className="text-lg font-bold text-amber-700 mt-0.5">{fmt(remaining)}</p>
@@ -354,10 +418,6 @@ function SupplierDetailDialog({
             <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
               <p className="text-[10px] text-green-600 font-bold uppercase tracking-wide">Paid</p>
               <p className="text-lg font-bold text-green-700 mt-0.5">{fmt(paid)}</p>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
-              <p className="text-[10px] text-blue-600 font-bold uppercase tracking-wide">Total Credit</p>
-              <p className="text-lg font-bold text-blue-700 mt-0.5">{fmt(totalOwed)}</p>
             </div>
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Transactions</p>
@@ -678,11 +738,9 @@ export default function Credits() {
       const match = [...entriesMap.entries()].find(([k]) => k.toLowerCase() === name.toLowerCase());
       return match ? match[1].filter(e => !e.isCredit && e.type === "cash_in").reduce((s, e) => s + e.amount, 0) : 0;
     })();
-    const settled = crds.filter(c => c.status === "paid").reduce((s, c) => s + c.amount, 0);
-    const kulUdhaar = baqi + wasool + settled;
     const lastDate = crds.reduce((latest, c) => new Date(c.createdAt) > latest ? new Date(c.createdAt) : latest, new Date(0));
-    const pendingCount = crds.filter(c => c.status === "pending").length;
-    return { name, phone, baqi, wasool, kulUdhaar, lastDate, pendingCount, crds };
+    const pendingCount = crds.filter(c => c.status === "pending" && c.amount > 0).length;
+    return { name, phone, baqi, wasool, lastDate, pendingCount, crds };
   });
 
   // Build supplier rows (suppliers you owe)
@@ -693,11 +751,9 @@ export default function Credits() {
       const match = [...entriesMap.entries()].find(([k]) => k.toLowerCase() === name.toLowerCase());
       return match ? match[1].filter(e => !e.isCredit && e.type === "cash_out").reduce((s, e) => s + e.amount, 0) : 0;
     })();
-    const settled = crds.filter(c => c.status === "paid").reduce((s, c) => s + c.amount, 0);
-    const totalCredit = remaining + paid + settled;
     const lastDate = crds.reduce((latest, c) => new Date(c.createdAt) > latest ? new Date(c.createdAt) : latest, new Date(0));
-    const pendingCount = crds.filter(c => c.status === "pending").length;
-    return { name, phone, remaining, paid, totalCredit, lastDate, pendingCount, crds };
+    const pendingCount = crds.filter(c => c.status === "pending" && c.amount > 0).length;
+    return { name, phone, remaining, paid, lastDate, pendingCount, crds };
   });
 
   // Filter
@@ -720,10 +776,8 @@ export default function Credits() {
   // Grand totals
   const grandCustomerBalance = customerRows.reduce((s, r) => s + r.baqi, 0);
   const grandCustomerCollected = customerRows.reduce((s, r) => s + r.wasool, 0);
-  const grandCustomerTotal = customerRows.reduce((s, r) => s + r.kulUdhaar, 0);
   const grandSupplierOwed = supplierRows.reduce((s, r) => s + r.remaining, 0);
   const grandSupplierPaid = supplierRows.reduce((s, r) => s + r.paid, 0);
-  const grandSupplierTotal = supplierRows.reduce((s, r) => s + r.totalCredit, 0);
 
   function handleAddCredit(data: any) {
     createCredit.mutate({ data: {
@@ -759,25 +813,8 @@ export default function Credits() {
       paymentMethod, isCredit: false, customerName: name,
     }}, {
       onSuccess: () => {
-        const pending = customerCredits
-          .filter(c => c.customerName.trim().toLowerCase() === name.trim().toLowerCase() && c.status === "pending")
-          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-        let left = amount;
-        const applyNext = (i: number) => {
-          if (i >= pending.length || left <= 0) {
-            invalidateAll();
-            toast({ title: "Payment collected!", description: `${fmt(amount)} received from ${name}` });
-            return;
-          }
-          const c = pending[i];
-          if (left >= c.amount) {
-            left -= c.amount;
-            updateCredit.mutate({ id: c.id, data: { status: "paid" } }, { onSuccess: () => applyNext(i + 1) });
-          } else {
-            updateCredit.mutate({ id: c.id, data: { amount: c.amount - left } }, { onSuccess: () => { left = 0; applyNext(i + 1); } });
-          }
-        };
-        applyNext(0);
+        invalidateAll();
+        toast({ title: "Payment collected!", description: `${fmt(amount)} received from ${name}` });
       },
       onError: (e: any) => toast({ title: "Error", description: e.error, variant: "destructive" }),
     });
@@ -842,7 +879,6 @@ export default function Credits() {
           </div>
           <div className="ml-auto text-right hidden sm:block">
             <p className="text-[10px] text-muted-foreground">Collected: <span className="font-semibold text-green-700">{fmt(grandCustomerCollected)}</span></p>
-            <p className="text-[10px] text-muted-foreground">Total: <span className="font-semibold text-blue-700">{fmt(grandCustomerTotal)}</span></p>
           </div>
         </div>
         <div className="flex items-center gap-3 px-4 py-2 bg-amber-50">
@@ -853,7 +889,6 @@ export default function Credits() {
           </div>
           <div className="ml-auto text-right hidden sm:block">
             <p className="text-[10px] text-muted-foreground">Paid: <span className="font-semibold text-green-700">{fmt(grandSupplierPaid)}</span></p>
-            <p className="text-[10px] text-muted-foreground">Total: <span className="font-semibold text-blue-700">{fmt(grandSupplierTotal)}</span></p>
           </div>
         </div>
       </div>
@@ -894,11 +929,6 @@ export default function Credits() {
       {isCustomerTab ? (
         <div className="flex gap-3 px-4 py-1.5 border-b bg-muted/10 shrink-0 text-sm">
           <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground text-xs">Total Given:</span>
-            <span className="font-bold text-blue-700">{fmt(grandCustomerTotal)}</span>
-          </div>
-          <div className="w-px bg-border" />
-          <div className="flex items-center gap-1.5">
             <span className="text-muted-foreground text-xs">Collected:</span>
             <span className="font-bold text-green-700">{fmt(grandCustomerCollected)}</span>
           </div>
@@ -911,11 +941,6 @@ export default function Credits() {
         </div>
       ) : (
         <div className="flex gap-3 px-4 py-1.5 border-b bg-muted/10 shrink-0 text-sm">
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground text-xs">Total Purchase Credit:</span>
-            <span className="font-bold text-blue-700">{fmt(grandSupplierTotal)}</span>
-          </div>
-          <div className="w-px bg-border" />
           <div className="flex items-center gap-1.5">
             <span className="text-muted-foreground text-xs">Paid to Suppliers:</span>
             <span className="font-bold text-green-700">{fmt(grandSupplierPaid)}</span>
@@ -980,9 +1005,8 @@ export default function Credits() {
                   <th className="py-2 px-2 text-center font-medium w-9 border-r border-slate-700">#</th>
                   <th className="py-2 px-3 text-left font-medium border-r border-slate-700" style={{ minWidth: "160px" }}>Customer Name</th>
                   <th className="py-2 px-3 text-left font-medium w-[130px] border-r border-slate-700">Phone</th>
-                  <th className="py-2 px-3 text-right font-medium w-[120px] border-r border-slate-700">Total Credit</th>
                   <th className="py-2 px-3 text-right font-medium w-[110px] border-r border-slate-700">Collected</th>
-                  <th className="py-2 px-3 text-right font-medium w-[110px] border-r border-slate-700">Balance Due</th>
+                   <th className="py-2 px-3 text-right font-medium w-[120px] border-r border-slate-700">Remaining</th>
                   <th className="py-2 px-3 text-center font-medium w-[100px] border-r border-slate-700">Last Date</th>
                   <th className="py-2 px-3 text-center font-medium w-[80px] border-r border-slate-700">Status</th>
                   <th className="py-2 px-3 text-center font-medium w-[90px]">Actions</th>
@@ -1014,7 +1038,6 @@ export default function Credits() {
                       <td className="py-1.5 px-3 border-r">
                         {row.phone ? <span className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{row.phone}</span> : <span className="text-xs text-muted-foreground/40">—</span>}
                       </td>
-                      <td className="py-1.5 px-3 text-right border-r"><span className="text-sm font-semibold text-blue-700">{fmt(row.kulUdhaar)}</span></td>
                       <td className="py-1.5 px-3 text-right border-r">
                         {row.wasool > 0 ? <span className="text-sm font-semibold text-green-700">{fmt(row.wasool)}</span> : <span className="text-xs text-muted-foreground/40">—</span>}
                       </td>
@@ -1047,7 +1070,6 @@ export default function Credits() {
                 <tfoot>
                   <tr className="bg-slate-100 font-semibold border-t-2 border-slate-300 sticky bottom-0">
                     <td colSpan={3} className="py-2 px-3 text-xs text-muted-foreground border-r">Total — {filteredCustomers.length} customers</td>
-                    <td className="py-2 px-3 text-right text-sm text-blue-700 border-r">{fmt(filteredCustomers.reduce((s, r) => s + r.kulUdhaar, 0))}</td>
                     <td className="py-2 px-3 text-right text-sm text-green-700 border-r">{fmt(filteredCustomers.reduce((s, r) => s + r.wasool, 0))}</td>
                     <td className="py-2 px-3 text-right text-sm text-red-600 border-r font-bold">{fmt(filteredCustomers.reduce((s, r) => s + r.baqi, 0))}</td>
                     <td colSpan={3} />
@@ -1076,9 +1098,8 @@ export default function Credits() {
                   <th className="py-2 px-2 text-center font-medium w-9 border-r border-blue-800">#</th>
                   <th className="py-2 px-3 text-left font-medium border-r border-blue-800" style={{ minWidth: "160px" }}>Supplier / Seller</th>
                   <th className="py-2 px-3 text-left font-medium w-[130px] border-r border-blue-800">Phone</th>
-                  <th className="py-2 px-3 text-right font-medium w-[120px] border-r border-blue-800">Total Credit</th>
                   <th className="py-2 px-3 text-right font-medium w-[110px] border-r border-blue-800">Paid</th>
-                  <th className="py-2 px-3 text-right font-medium w-[110px] border-r border-blue-800">You Owe</th>
+                   <th className="py-2 px-3 text-right font-medium w-[120px] border-r border-blue-800">Remaining</th>
                   <th className="py-2 px-3 text-center font-medium w-[100px] border-r border-blue-800">Last Date</th>
                   <th className="py-2 px-3 text-center font-medium w-[80px] border-r border-blue-800">Status</th>
                   <th className="py-2 px-3 text-center font-medium w-[90px]">Actions</th>
@@ -1110,7 +1131,6 @@ export default function Credits() {
                       <td className="py-1.5 px-3 border-r">
                         {row.phone ? <span className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{row.phone}</span> : <span className="text-xs text-muted-foreground/40">—</span>}
                       </td>
-                      <td className="py-1.5 px-3 text-right border-r"><span className="text-sm font-semibold text-blue-700">{fmt(row.totalCredit)}</span></td>
                       <td className="py-1.5 px-3 text-right border-r">
                         {row.paid > 0 ? <span className="text-sm font-semibold text-green-700">{fmt(row.paid)}</span> : <span className="text-xs text-muted-foreground/40">—</span>}
                       </td>
@@ -1143,7 +1163,6 @@ export default function Credits() {
                 <tfoot>
                   <tr className="bg-blue-50 font-semibold border-t-2 border-blue-200 sticky bottom-0">
                     <td colSpan={3} className="py-2 px-3 text-xs text-muted-foreground border-r">Total — {filteredSuppliers.length} suppliers</td>
-                    <td className="py-2 px-3 text-right text-sm text-blue-700 border-r">{fmt(filteredSuppliers.reduce((s, r) => s + r.totalCredit, 0))}</td>
                     <td className="py-2 px-3 text-right text-sm text-green-700 border-r">{fmt(filteredSuppliers.reduce((s, r) => s + r.paid, 0))}</td>
                     <td className="py-2 px-3 text-right text-sm text-amber-700 border-r font-bold">{fmt(filteredSuppliers.reduce((s, r) => s + r.remaining, 0))}</td>
                     <td colSpan={3} />

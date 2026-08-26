@@ -94,7 +94,7 @@ router.post("/entries", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const { type, amount, description, paymentMethod, profit, isCredit, isFundOperation, customerName, contactNumber, entryDate } = parsed.data;
+  const { type, amount, description, paymentMethod, profit, isCredit, creditOwner, isFundOperation, customerName, contactNumber, entryDate } = parsed.data;
 
   const [entry] = await db.transaction(async (tx) => {
     const [created] = await tx
@@ -114,73 +114,40 @@ router.post("/entries", requireAuth, async (req, res): Promise<void> => {
       })
       .returning();
 
-    // This adjustment deliberately leaves the original purchase credit intact.
-    // The shared entry ID makes the balance reversal safe on delete/restore.
-    if (
-      type === "cash_out" &&
-      !isCredit &&
+    if (isCredit && customerName) {
+      // Manual credit is customer-owned by default. Supplier credit must always
+      // be selected explicitly so a Cash Out loan cannot be misrouted.
+      const creditType = creditOwner === "supplier" ? "received" : "given";
+      await tx.insert(creditsTable).values({
+        userId,
+        customerName,
+        amount: amount.toString(),
+        description: description ?? null,
+        entryId: created.id,
+        type: creditType,
+        status: "pending",
+      });
+    } else if (
       customerName &&
-      description?.startsWith("Payment to supplier ")
+      (
+        (type === "cash_in" && description?.startsWith("Payment received from ")) ||
+        (type === "cash_out" && description?.startsWith("Payment to supplier "))
+      )
     ) {
+      const isCustomerPayment = type === "cash_in";
       await tx.insert(creditsTable).values({
         userId,
         customerName,
         amount: (-amount).toString(),
-        description: `Supplier payment adjustment for entry #${created.id}`,
+        description: `${isCustomerPayment ? "Customer" : "Supplier"} payment adjustment for entry #${created.id}`,
         entryId: created.id,
-        type: "received",
+        type: isCustomerPayment ? "given" : "received",
         status: "pending",
       });
     }
 
     return [created] as const;
   });
-
-  // Auto-save to credits table when entry is marked as credit with a customer name
-  if (isCredit && customerName) {
-    // cash_in + cash + credit = gave goods on credit (customer owes you) → "given"
-    // cash_in + digital + credit = Fund Receive on credit (customer sent you digitally, pending) → "received"
-    // cash_out + credit = received goods/service on credit (you owe someone) → "received"
-    const creditType = (type === "cash_in" && paymentMethod !== "digital") ? "given" : "received";
-
-    // Check if this customer already has a pending credit of the same type
-    const [existingCredit] = await db
-      .select()
-      .from(creditsTable)
-      .where(
-        and(
-          eq(creditsTable.userId, userId),
-          eq(creditsTable.customerName, customerName),
-          eq(creditsTable.type, creditType),
-          eq(creditsTable.status, "pending")
-        )
-      )
-      .limit(1);
-
-    if (existingCredit) {
-      // Add new amount to existing credit record
-      const newAmount = parseFloat(existingCredit.amount) + amount;
-      await db
-        .update(creditsTable)
-        .set({
-          amount: newAmount.toString(),
-          description: description
-            ? `${existingCredit.description ? existingCredit.description + " | " : ""}${description}`
-            : existingCredit.description,
-        })
-        .where(eq(creditsTable.id, existingCredit.id));
-    } else {
-      // Create a new credit record for this customer
-      await db.insert(creditsTable).values({
-        userId,
-        customerName,
-        amount: amount.toString(),
-        description: description ?? null,
-        type: creditType,
-        status: "pending",
-      });
-    }
-  }
 
   res.status(201).json(formatEntry(entry));
 });

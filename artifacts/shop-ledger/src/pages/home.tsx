@@ -10,6 +10,7 @@ import {
   useGetProfitReport,
   getGetReportSummaryQueryKey,
   getListEntriesQueryKey,
+  getListCreditsQueryKey,
 } from "@workspace/api-client-react";
 import ReceiptModal, { type ReceiptData } from "@/components/receipt-modal";
 import { useForm, Controller } from "react-hook-form";
@@ -34,6 +35,7 @@ const entrySchema = z.object({
   profit: z.coerce.number().optional(),
   paymentMethod: z.enum(["cash", "digital"]),
   isCredit: z.boolean().default(false),
+  creditOwner: z.enum(["customer", "supplier"]).default("customer"),
   customerName: z.string().optional(),
   contactNumber: z.string().optional(),
 });
@@ -106,6 +108,7 @@ export default function Home() {
       description: "",
       paymentMethod: "cash",
       isCredit: false,
+      creditOwner: "customer",
       customerName: "",
       contactNumber: "",
     },
@@ -131,7 +134,7 @@ export default function Home() {
     setEntryType(type);
     isFundOperationRef.current = method === "digital";
     setIsFundOperationMode(method === "digital");
-    form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: method, isCredit: false, customerName: "", contactNumber: "" });
+    form.reset({ amount: 0, description: "", profit: undefined, paymentMethod: method, isCredit: false, creditOwner: "customer", customerName: "", contactNumber: "" });
     setCustomerSearch("");
     setShowCustomerDropdown(false);
     setDialogOpen(true);
@@ -148,6 +151,7 @@ export default function Home() {
           profit: data.profit != null && data.profit > 0 ? data.profit : null,
           paymentMethod: data.paymentMethod,
           isCredit: data.isCredit,
+          creditOwner: data.isCredit ? data.creditOwner : undefined,
           isFundOperation: isFund,
           customerName: (data.isCredit || isFund) ? (data.customerName || null) : null,
           contactNumber: isFund ? (data.contactNumber || null) : null,
@@ -157,6 +161,7 @@ export default function Home() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetReportSummaryQueryKey() });
           queryClient.invalidateQueries({ queryKey: getListEntriesQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListCreditsQueryKey() });
           setDialogOpen(false);
           const label = isFund
             ? (entryType === "cash_in" ? "Fund Receive" : "Fund Transfer")
@@ -711,6 +716,28 @@ export default function Home() {
               </div>
               {isCredit && (
                 <>
+                  {!isFundTransfer && (
+                    <FormField
+                      control={form.control}
+                      name="creditOwner"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Credit belongs to</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger data-testid="select-credit-owner">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="customer">Customer Credit — customer owes you</SelectItem>
+                              <SelectItem value="supplier">Supplier Credit — you owe supplier</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                  )}
                   <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                     <Handshake className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                     <span>
