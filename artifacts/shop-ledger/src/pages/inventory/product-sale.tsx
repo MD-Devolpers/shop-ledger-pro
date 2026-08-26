@@ -311,11 +311,11 @@ export default function ProductSale() {
   return (
     <div className="p-4 space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-2">
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2"><ShoppingCart className="h-5 w-5" />Product Sale</h1>
         </div>
-        <Button size="sm" variant="outline" onClick={() => navigate("/inventory/product-reports?tab=sales")} className="text-xs gap-1">
+        <Button size="sm" variant="outline" onClick={() => navigate("/inventory/product-reports?tab=sales")} className="shrink-0 text-xs gap-1">
           <ExternalLink className="h-3.5 w-3.5" />Sale History
         </Button>
       </div>
@@ -491,7 +491,7 @@ export default function ProductSale() {
                 </div>
 
                 {/* Qty + Sale Price + Discount */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   <div>
                     <Label className="text-xs">Qty</Label>
                     <Input type="number" className="h-8 text-sm mt-1" min={1} value={line.quantity}
@@ -502,7 +502,7 @@ export default function ProductSale() {
                     <Input type="number" className="h-8 text-sm mt-1" value={line.salePrice}
                       onChange={e => setLineField(i, "salePrice", e.target.value)} />
                   </div>
-                  <div>
+                  <div className="col-span-2 sm:col-span-1">
                     <Label className="text-xs">Discount</Label>
                     <div className="flex gap-1 mt-1">
                       <Input type="number" className="h-8 text-sm" value={line.discount}

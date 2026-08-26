@@ -25,6 +25,7 @@ import {
   Store,
   PackageX,
   PackagePlus,
+  History,
   ClipboardList,
   ShieldCheck,
   Star,
@@ -51,16 +52,20 @@ const moreItems = [
   { icon: FileBarChart2, label: "Digital Report", href: "/digital-report" },
   { icon: Package, label: "Inventory", href: "/inventory" },
   { icon: ListOrdered, label: "Products", href: "/inventory/products" },
+  { icon: PackagePlus, label: "Bulk Purchase", href: "/inventory/bulk-purchase" },
   { icon: ShoppingCart, label: "Product Sale", href: "/inventory/product-sale" },
   { icon: ClipboardList, label: "Purchase Report", href: "/inventory/purchase-bills" },
   { icon: RotateCcw, label: "Product Return", href: "/inventory/product-return" },
+  { icon: PackageX, label: "Bulk Replacement", href: "/inventory/bulk-replacement" },
+  { icon: Users, label: "Customer Credits", href: "/credits" },
   { icon: Building2, label: "Supplier Credit", href: "/inventory/supplier-balance" },
   { icon: Star, label: "Quick Products", href: "/inventory/quick-products" },
   { icon: FileBarChart, label: "Prod. Reports", href: "/inventory/product-reports" },
   { icon: PackageX, label: "Replacements", href: "/inventory/company-replacements" },
-
+  { icon: History, label: "Product History", href: "/inventory/product-history" },
   { icon: ShieldCheck, label: "Warranty Check", href: "/inventory/warranty-check" },
   { icon: Cpu, label: "Mobile Purchase", href: "/inventory/mobile-purchase" },
+  { icon: PackagePlus, label: "Bulk Mobile Purchase", href: "/inventory/bulk-mobile-purchase" },
   { icon: Building2, label: "Masters", href: "/inventory/masters" },
   { icon: Store, label: "Bill Settings", href: "/inventory/bill-settings" },
   { icon: Trash2, label: "Recycle Bin", href: "/recycle-bin" },
@@ -256,12 +261,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Main Content ── */}
-      <main className="flex-1 flex flex-col min-w-0 bg-background md:bg-muted/10 pb-[64px] md:pb-0">
+      <main className="mobile-main flex-1 flex flex-col min-w-0 bg-background md:bg-muted/10">
         {children}
       </main>
 
       {/* ── Mobile Bottom Nav ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-20 border-t bg-card flex items-center justify-around px-2 pt-2 pb-safe">
+      <nav className="mobile-bottom-nav md:hidden fixed bottom-0 left-0 right-0 z-20 border-t bg-card flex items-center justify-around px-2 pt-2">
         {bottomNavItems.map((item) => {
           const active = isActive(item.href);
           return (
@@ -301,7 +306,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             onClick={() => setMoreOpen(false)}
           />
           {/* Sheet */}
-          <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 max-h-[88dvh] overflow-y-auto bg-card rounded-t-2xl shadow-2xl border-t">
+          <div className="mobile-more-sheet md:hidden fixed bottom-0 left-0 right-0 z-40 max-h-[88dvh] overflow-y-auto bg-card rounded-t-2xl shadow-2xl border-t">
             {/* Handle */}
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />

@@ -213,7 +213,7 @@ export default function Home() {
         {summaryLoading ? (
           <div className="h-10 w-40 bg-primary-foreground/20 rounded animate-pulse mt-1" />
         ) : (
-          <h2 className="text-4xl font-bold mt-1" data-testid="total-balance">
+          <h2 className="text-3xl sm:text-4xl font-bold mt-1 break-words" data-testid="total-balance">
             {formatCurrency(summary?.totalBalance ?? 0)}
           </h2>
         )}
@@ -223,7 +223,7 @@ export default function Home() {
               <Wallet className="h-3.5 w-3.5 opacity-70" />
               <p className="text-[11px] opacity-70">Cash</p>
             </div>
-            <p className="text-sm font-bold" data-testid="cash-balance">
+            <p className="text-xs sm:text-sm font-bold break-words" data-testid="cash-balance">
               {formatCurrency(summary?.cashBalance ?? 0)}
             </p>
           </div>
@@ -232,7 +232,7 @@ export default function Home() {
               <CreditCard className="h-3.5 w-3.5 opacity-70" />
               <p className="text-[11px] opacity-70">Digital</p>
             </div>
-            <p className="text-sm font-bold" data-testid="digital-balance">
+            <p className="text-xs sm:text-sm font-bold break-words" data-testid="digital-balance">
               {formatCurrency(summary?.digitalBalance ?? 0)}
             </p>
           </div>
@@ -241,7 +241,7 @@ export default function Home() {
               <Handshake className="h-3.5 w-3.5 opacity-80" />
               <p className="text-[11px] opacity-80">Today Credit</p>
             </div>
-            <p className="text-sm font-bold" data-testid="credit-balance">
+            <p className="text-xs sm:text-sm font-bold break-words" data-testid="credit-balance">
               {formatCurrency(
                 (todayEntries ?? [])
                   .filter((e) => e.isCredit && e.type === "cash_in")
@@ -374,7 +374,7 @@ export default function Home() {
               }).map((entry) => (
               <div
                 key={entry.id}
-                className="bg-card border rounded-xl p-3 flex items-center gap-3"
+                className="bg-card border rounded-xl p-3 flex items-start gap-3 flex-wrap sm:flex-nowrap"
                 data-testid={`entry-${entry.id}`}
               >
                 <div
@@ -421,7 +421,7 @@ export default function Home() {
                     {format(new Date(entry.entryDate), "h:mm a")}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2 w-full pl-[52px] sm:w-auto sm:pl-0 sm:justify-start">
                   <p
                     className={`text-base font-bold ${
                       entry.type === "cash_in" ? "text-green-600" : "text-red-600"
@@ -540,7 +540,7 @@ export default function Home() {
 
       {/* Entry Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md" data-testid="entry-dialog">
+        <DialogContent className="sm:max-w-md sm:max-h-[90vh] sm:overflow-y-auto" data-testid="entry-dialog">
           <DialogHeader>
             <DialogTitle className={
               isFundTransfer

@@ -365,7 +365,7 @@ export default function Entries() {
         <p className="text-xs text-muted-foreground">All your ledger entries</p>
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-3 sm:p-4">
         {/* Data saved banner */}
         <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 mb-3">
           <CloudCheck className="h-4 w-4 flex-shrink-0" />
@@ -373,25 +373,25 @@ export default function Entries() {
         </div>
 
         <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="w-full mb-4 grid grid-cols-5">
-            <TabsTrigger value="all" data-testid="tab-all">
+          <TabsList className="w-full mb-4 grid grid-cols-5 h-auto p-1">
+            <TabsTrigger value="all" data-testid="tab-all" className="px-1 sm:px-3">
               All
             </TabsTrigger>
-            <TabsTrigger value="cash_in" data-testid="tab-cash-in">
+            <TabsTrigger value="cash_in" data-testid="tab-cash-in" className="px-1 sm:px-3">
               In
             </TabsTrigger>
-            <TabsTrigger value="cash_out" data-testid="tab-cash-out">
+            <TabsTrigger value="cash_out" data-testid="tab-cash-out" className="px-1 sm:px-3">
               Out
             </TabsTrigger>
             <TabsTrigger
               value="bin"
               data-testid="tab-bin"
-              className="flex items-center gap-1 data-[state=active]:text-destructive"
+              className="flex items-center gap-1 px-1 sm:px-3 data-[state=active]:text-destructive"
             >
               <Trash className="h-3.5 w-3.5" />
               Bin
             </TabsTrigger>
-            <TabsTrigger value="sale_history" data-testid="tab-sale-history" className="flex items-center gap-1">
+            <TabsTrigger value="sale_history" data-testid="tab-sale-history" className="flex items-center gap-1 px-1 sm:px-3">
               <ShoppingCart className="h-3.5 w-3.5" />
               Sales
             </TabsTrigger>

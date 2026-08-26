@@ -137,10 +137,10 @@ function CustomerDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-4xl w-[95vw] max-h-[92vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-4xl sm:w-[95vw] sm:max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Header */}
         <div className="bg-slate-800 text-white px-5 py-4 rounded-t-lg flex-shrink-0">
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-2 sm:gap-3">
             <div className={`h-12 w-12 rounded-full flex items-center justify-center text-xl font-bold flex-shrink-0 ${
               balance > 0 ? "bg-red-500" : "bg-green-500"
             }`}>
@@ -150,22 +150,22 @@ function CustomerDetailDialog({
               <p className="font-bold text-lg">{customerName}</p>
               {phone && <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5"><Phone className="h-3 w-3" />{phone}</p>}
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1 sm:gap-2">
               <button title="Download PDF" onClick={() => downloadCreditStatement(customerName, "customer", balance, printableRows)}
-                className="h-8 px-2 rounded border border-slate-600 text-slate-200 hover:bg-slate-700 flex items-center gap-1 text-xs"><Download className="h-3.5 w-3.5" />PDF</button>
+                className="h-8 w-8 sm:w-auto sm:px-2 rounded border border-slate-600 text-slate-200 hover:bg-slate-700 flex items-center justify-center gap-1 text-xs"><Download className="h-3.5 w-3.5" /><span className="hidden sm:inline">PDF</span></button>
               <button title="Print statement" onClick={() => printCreditStatement(customerName, "customer", balance, printableRows)}
-                className="h-8 px-2 rounded border border-slate-600 text-slate-200 hover:bg-slate-700 flex items-center gap-1 text-xs"><Printer className="h-3.5 w-3.5" />Print</button>
+                className="h-8 w-8 sm:w-auto sm:px-2 rounded border border-slate-600 text-slate-200 hover:bg-slate-700 flex items-center justify-center gap-1 text-xs"><Printer className="h-3.5 w-3.5" /><span className="hidden sm:inline">Print</span></button>
               <div className="text-right hidden sm:block">
                 <p className="text-xs text-slate-400">Outstanding Balance</p>
                 <p className={`text-xl font-bold ${balance > 0 ? "text-red-300" : "text-green-300"}`}>{fmt(balance)}</p>
               </div>
-              <button onClick={onClose} className="text-slate-400 hover:text-white ml-2"><X className="h-5 w-5" /></button>
+              <button onClick={onClose} className="text-slate-400 hover:text-white ml-1 sm:ml-2"><X className="h-5 w-5" /></button>
             </div>
           </div>
         </div>
 
         {/* Summary + Collect */}
-        <div className="px-5 py-3 border-b bg-slate-50 flex-shrink-0 space-y-3">
+        <div className="px-3 sm:px-5 py-3 border-b bg-slate-50 flex-shrink-0 space-y-3">
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
               <p className="text-[10px] text-red-500 font-bold uppercase tracking-wide">Balance Due</p>
@@ -194,7 +194,7 @@ function CustomerDetailDialog({
               </button>
               {showCollect && (
                 <div className="bg-green-50 border border-green-200 rounded-xl p-3 space-y-3">
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <button onClick={() => setCollectAmount(String(Math.round(balance / 2)))}
                       className="h-8 text-xs border border-green-200 rounded-lg bg-white hover:bg-green-50 font-medium">
                       Half — {fmt(Math.round(balance / 2))}
@@ -211,7 +211,7 @@ function CustomerDetailDialog({
                       Partial payment — Remaining after this: <strong>{fmt(balance - parseFloat(collectAmount))}</strong>
                     </p>
                   )}
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 sm:flex gap-2">
                     {(["cash", "digital"] as const).map(m => (
                       <button key={m} onClick={() => setCollectMethod(m)}
                         className={`flex items-center gap-2 justify-center border rounded-xl px-4 py-2 text-sm font-medium transition-colors flex-1 ${
@@ -224,11 +224,11 @@ function CustomerDetailDialog({
                       </button>
                     ))}
                     <Button onClick={handleCollect} disabled={!parseFloat(collectAmount) || parseFloat(collectAmount) <= 0}
-                      className="flex-1 bg-green-600 hover:bg-green-700 h-10">
+                      className="col-span-2 sm:col-span-1 flex-1 bg-green-600 hover:bg-green-700 h-10">
                       <CheckCircle2 className="h-4 w-4 mr-1.5" />
                       Confirm {collectAmount ? fmt(parseFloat(collectAmount)) : ""}
                     </Button>
-                    <Button variant="ghost" className="h-10 px-3" onClick={() => setShowCollect(false)}>Cancel</Button>
+                    <Button variant="ghost" className="col-span-2 sm:col-span-1 h-10 px-3" onClick={() => setShowCollect(false)}>Cancel</Button>
                   </div>
                 </div>
               )}
@@ -244,7 +244,7 @@ function CustomerDetailDialog({
           {timeline.length === 0 ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">No transactions found</div>
           ) : (
-            <table className="w-full text-sm border-collapse">
+            <table className="w-full min-w-[760px] text-sm border-collapse">
               <thead className="sticky top-8 z-10">
                 <tr className="bg-slate-100 text-slate-600 text-xs border-b">
                   <th className="py-2 px-4 text-left font-semibold w-[140px]">Date & Time</th>
@@ -380,10 +380,10 @@ function SupplierDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={o => !o && onClose()}>
-      <DialogContent className="max-w-4xl w-[95vw] max-h-[92vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-4xl sm:w-[95vw] sm:max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Header */}
         <div className="bg-blue-900 text-white px-5 py-4 rounded-t-lg flex-shrink-0">
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-2 sm:gap-3">
             <div className={`h-12 w-12 rounded-full flex items-center justify-center text-xl font-bold flex-shrink-0 ${
               remaining > 0 ? "bg-amber-500" : "bg-green-500"
             }`}>
@@ -394,22 +394,22 @@ function SupplierDetailDialog({
               {phone && <p className="text-xs text-blue-300 flex items-center gap-1.5 mt-0.5"><Phone className="h-3 w-3" />{phone}</p>}
               <p className="text-[11px] text-blue-300 mt-0.5">Supplier / Purchase Credit</p>
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1 sm:gap-2">
               <button title="Download PDF" onClick={() => downloadCreditStatement(supplierName, "supplier", remaining, printableRows)}
-                className="h-8 px-2 rounded border border-blue-700 text-blue-100 hover:bg-blue-800 flex items-center gap-1 text-xs"><Download className="h-3.5 w-3.5" />PDF</button>
+                className="h-8 w-8 sm:w-auto sm:px-2 rounded border border-blue-700 text-blue-100 hover:bg-blue-800 flex items-center justify-center gap-1 text-xs"><Download className="h-3.5 w-3.5" /><span className="hidden sm:inline">PDF</span></button>
               <button title="Print statement" onClick={() => printCreditStatement(supplierName, "supplier", remaining, printableRows)}
-                className="h-8 px-2 rounded border border-blue-700 text-blue-100 hover:bg-blue-800 flex items-center gap-1 text-xs"><Printer className="h-3.5 w-3.5" />Print</button>
+                className="h-8 w-8 sm:w-auto sm:px-2 rounded border border-blue-700 text-blue-100 hover:bg-blue-800 flex items-center justify-center gap-1 text-xs"><Printer className="h-3.5 w-3.5" /><span className="hidden sm:inline">Print</span></button>
               <div className="text-right hidden sm:block">
                 <p className="text-xs text-blue-300">You Owe</p>
                 <p className={`text-xl font-bold ${remaining > 0 ? "text-amber-300" : "text-green-300"}`}>{fmt(remaining)}</p>
               </div>
-              <button onClick={onClose} className="text-blue-300 hover:text-white ml-2"><X className="h-5 w-5" /></button>
+              <button onClick={onClose} className="text-blue-300 hover:text-white ml-1 sm:ml-2"><X className="h-5 w-5" /></button>
             </div>
           </div>
         </div>
 
         {/* Summary + Pay */}
-        <div className="px-5 py-3 border-b bg-blue-50 flex-shrink-0 space-y-3">
+        <div className="px-3 sm:px-5 py-3 border-b bg-blue-50 flex-shrink-0 space-y-3">
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
               <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wide">You Owe</p>
@@ -438,7 +438,7 @@ function SupplierDetailDialog({
               </button>
               {showPay && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-3">
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <button onClick={() => setPayAmount(String(Math.round(remaining / 2)))}
                       className="h-8 text-xs border border-amber-200 rounded-lg bg-white hover:bg-amber-50 font-medium">
                       Half — {fmt(Math.round(remaining / 2))}
@@ -455,7 +455,7 @@ function SupplierDetailDialog({
                       Partial payment — Remaining after this: <strong>{fmt(remaining - parseFloat(payAmount))}</strong>
                     </p>
                   )}
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 sm:flex gap-2">
                     {(["cash", "digital"] as const).map(m => (
                       <button key={m} onClick={() => setPayMethod(m)}
                         className={`flex items-center gap-2 justify-center border rounded-xl px-4 py-2 text-sm font-medium transition-colors flex-1 ${
@@ -468,11 +468,11 @@ function SupplierDetailDialog({
                       </button>
                     ))}
                     <Button onClick={handlePay} disabled={!parseFloat(payAmount) || parseFloat(payAmount) <= 0}
-                      className="flex-1 bg-amber-600 hover:bg-amber-700 h-10">
+                      className="col-span-2 sm:col-span-1 flex-1 bg-amber-600 hover:bg-amber-700 h-10">
                       <CheckCircle2 className="h-4 w-4 mr-1.5" />
                       Confirm {payAmount ? fmt(parseFloat(payAmount)) : ""}
                     </Button>
-                    <Button variant="ghost" className="h-10 px-3" onClick={() => setShowPay(false)}>Cancel</Button>
+                    <Button variant="ghost" className="col-span-2 sm:col-span-1 h-10 px-3" onClick={() => setShowPay(false)}>Cancel</Button>
                   </div>
                 </div>
               )}
@@ -488,7 +488,7 @@ function SupplierDetailDialog({
           {timeline.length === 0 ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground text-sm">No transactions found</div>
           ) : (
-            <table className="w-full text-sm border-collapse">
+            <table className="w-full min-w-[760px] text-sm border-collapse">
               <thead className="sticky top-8 z-10">
                 <tr className="bg-slate-100 text-slate-600 text-xs border-b">
                   <th className="py-2 px-4 text-left font-semibold w-[140px]">Date & Time</th>
@@ -857,14 +857,15 @@ export default function Credits() {
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* ── Top bar ── */}
-      <div className="flex items-center gap-3 px-4 py-2.5 border-b bg-card shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 border-b bg-card shrink-0">
         <Users className="h-5 w-5 text-teal-600" />
         <h1 className="font-bold text-base">Credits</h1>
         <div className="ml-auto flex items-center gap-2">
           <Button size="sm" onClick={() => setDialogOpen(true)}
             className={`h-8 text-white ${isCustomerTab ? "bg-teal-600 hover:bg-teal-700" : "bg-blue-600 hover:bg-blue-700"}`}>
             <Plus className="h-3.5 w-3.5 mr-1" />
-            {isCustomerTab ? "New Customer Credit" : "New Supplier Credit"}
+            <span className="sm:hidden">New Credit</span>
+            <span className="hidden sm:inline">{isCustomerTab ? "New Customer Credit" : "New Supplier Credit"}</span>
           </Button>
         </div>
       </div>
@@ -897,7 +898,7 @@ export default function Credits() {
       <div className="flex border-b shrink-0 bg-card">
         <button
           onClick={() => { setActiveTab("customer"); setSearchName(""); setSearchPhone(""); }}
-          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+          className={`flex-1 justify-center flex items-center gap-1.5 sm:gap-2 px-2 sm:px-5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-colors ${
             isCustomerTab ? "border-teal-600 text-teal-700" : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -911,7 +912,7 @@ export default function Credits() {
         </button>
         <button
           onClick={() => { setActiveTab("supplier"); setSearchName(""); setSearchPhone(""); }}
-          className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+          className={`flex-1 justify-center flex items-center gap-1.5 sm:gap-2 px-2 sm:px-5 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-colors ${
             !isCustomerTab ? "border-blue-600 text-blue-700" : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -927,7 +928,7 @@ export default function Credits() {
 
       {/* ── Tab summary bar ── */}
       {isCustomerTab ? (
-        <div className="flex gap-3 px-4 py-1.5 border-b bg-muted/10 shrink-0 text-sm">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 sm:px-4 py-1.5 border-b bg-muted/10 shrink-0 text-sm">
           <div className="flex items-center gap-1.5">
             <span className="text-muted-foreground text-xs">Collected:</span>
             <span className="font-bold text-green-700">{fmt(grandCustomerCollected)}</span>
@@ -937,10 +938,10 @@ export default function Credits() {
             <span className="text-muted-foreground text-xs">Balance Due:</span>
             <span className="font-bold text-red-600">{fmt(grandCustomerBalance)}</span>
           </div>
-          <div className="ml-auto text-xs text-muted-foreground">{filteredCustomers.length} customers</div>
+          <div className="w-full sm:w-auto sm:ml-auto text-xs text-muted-foreground">{filteredCustomers.length} customers</div>
         </div>
       ) : (
-        <div className="flex gap-3 px-4 py-1.5 border-b bg-muted/10 shrink-0 text-sm">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 px-3 sm:px-4 py-1.5 border-b bg-muted/10 shrink-0 text-sm">
           <div className="flex items-center gap-1.5">
             <span className="text-muted-foreground text-xs">Paid to Suppliers:</span>
             <span className="font-bold text-green-700">{fmt(grandSupplierPaid)}</span>
@@ -950,12 +951,12 @@ export default function Credits() {
             <span className="text-muted-foreground text-xs">You Still Owe:</span>
             <span className="font-bold text-amber-700">{fmt(grandSupplierOwed)}</span>
           </div>
-          <div className="ml-auto text-xs text-muted-foreground">{filteredSuppliers.length} suppliers</div>
+          <div className="w-full sm:w-auto sm:ml-auto text-xs text-muted-foreground">{filteredSuppliers.length} suppliers</div>
         </div>
       )}
 
       {/* ── Search ── */}
-      <div className="flex gap-2 px-4 py-2 border-b bg-muted/5 shrink-0">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_11rem_auto] gap-2 px-3 sm:px-4 py-2 border-b bg-muted/5 shrink-0">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <input
@@ -965,7 +966,7 @@ export default function Credits() {
             onChange={e => setSearchName(e.target.value)}
           />
         </div>
-        <div className="relative w-44">
+        <div className="relative w-full sm:w-44">
           <Phone className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <input
             className="w-full h-8 pl-8 pr-3 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-teal-400"

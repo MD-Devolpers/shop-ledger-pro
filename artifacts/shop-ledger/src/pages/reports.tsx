@@ -431,12 +431,12 @@ export default function Reports() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                   Statistics
                 </p>
-                <div className="flex gap-1">
+                <div className="flex gap-1 overflow-x-auto max-w-[72%] pb-0.5">
                   {(["7days", "weekly", "monthly", "yearly"] as const).map((f) => (
                     <button
                       key={f}
                       onClick={() => setGraphFilter(f)}
-                      className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-colors ${
+                      className={`text-[11px] px-2.5 py-1 rounded-full font-medium transition-colors whitespace-nowrap ${
                         graphFilter === f
                           ? "bg-amber-500 text-white"
                           : "bg-muted text-muted-foreground hover:bg-muted/80"

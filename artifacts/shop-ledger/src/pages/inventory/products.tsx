@@ -342,19 +342,19 @@ export default function Products() {
           <h1 className="text-2xl font-bold">Products</h1>
           <p className="text-muted-foreground text-sm">{products.length} products</p>
         </div>
-        <Button onClick={openAdd} className="shrink-0">
+        <Button onClick={openAdd} className="w-full sm:w-auto shrink-0">
           <Plus className="h-4 w-4 mr-1" />Add New Product
         </Button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
-        <div className="relative flex-1 min-w-[180px]">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+        <div className="relative col-span-2 sm:flex-1 sm:min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="Search by code or name..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <Select value={filterCompany} onValueChange={setFilterCompany}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Company" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[140px]"><SelectValue placeholder="Company" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Companies</SelectItem>
             {companies.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
@@ -363,7 +363,7 @@ export default function Products() {
         {filterCompany !== "all" && products.length > 0 && (
           <Button
             size="sm" variant="outline"
-            className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+            className="col-span-2 sm:col-span-1 text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
             onClick={handleAssignCompany}
             disabled={bulkAssignCompany.isPending}
             title="Assign this company to all filtered products that don't have one"
@@ -372,14 +372,14 @@ export default function Products() {
           </Button>
         )}
         <Select value={filterCategory} onValueChange={setFilterCategory}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Category" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[140px]"><SelectValue placeholder="Category" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
             {categories.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterStock} onValueChange={setFilterStock}>
-          <SelectTrigger className="w-[130px]"><SelectValue placeholder="Stock" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[130px]"><SelectValue placeholder="Stock" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Stock</SelectItem>
             <SelectItem value="low">Low Stock</SelectItem>
@@ -490,7 +490,7 @@ export default function Products() {
             <DialogTitle>{editProduct ? "Edit Product" : "Add New Product"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>Product Code *</Label>
                 <Input value={form.code} onChange={e => setForm(f => ({ ...f, code: e.target.value }))} placeholder="e.g. CAB-001" className="mt-1" />
@@ -500,7 +500,7 @@ export default function Products() {
                 <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. USB Cable" className="mt-1" />
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <Label>Company</Label>
                 <Select value={form.companyId || "none"} onValueChange={v => setForm(f => ({ ...f, companyId: v === "none" ? "" : v }))}>
