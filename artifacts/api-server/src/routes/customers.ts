@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, sql } from "drizzle-orm";
+import { eq, and, ilike, isNull } from "drizzle-orm";
 import { db, creditsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 
@@ -12,32 +12,53 @@ router.get("/customers", requireAuth, async (req, res): Promise<void> => {
   const baseWhere = q
     ? and(
         eq(creditsTable.userId, userId),
+        isNull(creditsTable.deletedAt),
         eq(creditsTable.status, "pending"),
         eq(creditsTable.type, "given"),
         ilike(creditsTable.customerName, `%${q}%`)
       )
     : and(
         eq(creditsTable.userId, userId),
+        isNull(creditsTable.deletedAt),
         eq(creditsTable.status, "pending"),
         eq(creditsTable.type, "given")
       );
 
-  const customers = await db
+  const creditRows = await db
     .select({
-      id: sql<number>`min(${creditsTable.id})`.as("id"),
+      id: creditsTable.id,
       name: creditsTable.customerName,
-      totalCredit: sql<number>`sum(${creditsTable.amount})`.as("totalCredit"),
+      amount: creditsTable.amount,
     })
     .from(creditsTable)
-    .where(baseWhere)
-    .groupBy(creditsTable.customerName);
+    .where(baseWhere);
+
+  // Match the Credits page: merge names that differ only by case or spacing
+  // and calculate the outstanding balance from all active pending adjustments.
+  const customerMap = new Map<string, { id: number; name: string; totalCredit: number }>();
+  for (const row of creditRows) {
+    const name = row.name.trim();
+    const key = name.toLocaleLowerCase();
+    const existing = customerMap.get(key);
+    if (existing) {
+      existing.totalCredit += parseFloat(row.amount);
+    } else {
+      customerMap.set(key, {
+        id: row.id,
+        name,
+        totalCredit: parseFloat(row.amount),
+      });
+    }
+  }
 
   res.json(
-    customers.map((c) => ({
-      id: Number(c.id),
-      name: c.name,
-      totalCredit: parseFloat(String(c.totalCredit)),
-    }))
+    [...customerMap.values()]
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        totalCredit: Math.max(0, c.totalCredit),
+      }))
+      .filter((c) => c.totalCredit > 0)
   );
 });
 
