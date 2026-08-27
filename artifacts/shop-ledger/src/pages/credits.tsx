@@ -801,7 +801,10 @@ export default function Credits() {
 
   function handleDelete(id: number) {
     deleteCredit.mutate({ id }, {
-      onSuccess: () => { invalidateAll(); toast({ title: "Deleted" }); },
+      onSuccess: () => {
+        invalidateAll();
+        toast({ title: "Moved to Recycle Bin" });
+      },
     });
   }
 

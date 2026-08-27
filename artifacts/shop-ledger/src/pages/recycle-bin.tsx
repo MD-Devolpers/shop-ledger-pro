@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { useListEntries, useRestoreEntry, useListCredits } from "@workspace/api-client-react";
+import { useListEntries, useRestoreEntry } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Package, ClipboardList, ShoppingCart } from "lucide-react";
 
@@ -36,10 +36,19 @@ export default function RecycleBin() {
     { query: { staleTime: 0 } }
   );
 
-  const { data: deletedCredits = [], isLoading: creditsLoading, refetch: refetchCredits } = useListCredits(
-    { deleted: true } as any,
-    { query: { staleTime: 0 } }
-  );
+  const {
+    data: deletedCredits = [],
+    isLoading: creditsLoading,
+    refetch: refetchCredits,
+  } = useQuery<any[]>({
+    queryKey: ["recycle-bin-credits"],
+    queryFn: async () => {
+      const res = await fetch("/api/credits?deleted=true", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load deleted credits");
+      return res.json();
+    },
+    staleTime: 0,
+  });
 
   const restoreEntry = useRestoreEntry();
 
