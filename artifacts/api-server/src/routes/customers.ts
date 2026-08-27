@@ -13,9 +13,14 @@ router.get("/customers", requireAuth, async (req, res): Promise<void> => {
     ? and(
         eq(creditsTable.userId, userId),
         eq(creditsTable.status, "pending"),
+        eq(creditsTable.type, "given"),
         ilike(creditsTable.customerName, `%${q}%`)
       )
-    : and(eq(creditsTable.userId, userId), eq(creditsTable.status, "pending"));
+    : and(
+        eq(creditsTable.userId, userId),
+        eq(creditsTable.status, "pending"),
+        eq(creditsTable.type, "given")
+      );
 
   const customers = await db
     .select({
