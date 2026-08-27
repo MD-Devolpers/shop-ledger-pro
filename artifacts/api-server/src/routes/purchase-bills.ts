@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, ilike, or, isNull, desc, gte, lte, sql, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { db, purchaseBillsTable, purchaseBillItemsTable, productsTable, companiesTable, productPriceHistoryTable, creditsTable } from "@workspace/db";
+import { db, purchaseBillsTable, purchaseBillItemsTable, productsTable, companiesTable, productPriceHistoryTable, creditsTable, entriesTable } from "@workspace/db";
 
 const productCompanyAlias = alias(companiesTable, "product_company");
 import { requireAuth } from "../middlewares/auth";
@@ -224,7 +224,7 @@ router.post("/inventory/purchase-bills", requireAuth, async (req, res): Promise<
 // ── Bulk Create: new products + stock in one bill ────────────────────────────
 router.post("/inventory/purchase-bills/bulk-create", requireAuth, async (req, res): Promise<void> => {
   const userId = req.session!.userId!;
-  const { companyId, supplierName: supplierInput, billNumber, billDate, notes, items, isCredit, mixed, updateProductCompany } = req.body;
+  const { companyId, supplierName: supplierInput, billNumber, billDate, notes, items, isCredit, mixed, updateProductCompany, paidAmount, paymentMethod } = req.body;
 
   if (!billNumber?.trim()) { res.status(400).json({ error: "Bill number required" }); return; }
   if (!Array.isArray(items) || items.length === 0) { res.status(400).json({ error: "At least one item required" }); return; }
@@ -352,6 +352,15 @@ router.post("/inventory/purchase-bills/bulk-create", requireAuth, async (req, re
 
   if (resolvedItems.length === 0) { res.status(400).json({ error: "No valid items to save" }); return; }
 
+  const creditPurchase = isCredit === true || isCredit === "true";
+  const requestedPaidAmount = creditPurchase ? Number(paidAmount ?? 0) : totalAmount;
+  if (!Number.isFinite(requestedPaidAmount) || requestedPaidAmount < 0 || requestedPaidAmount > totalAmount) {
+    res.status(400).json({ error: "Paid amount must be between zero and the bill total" });
+    return;
+  }
+  const normalizedPaidAmount = Math.round(requestedPaidAmount * 100) / 100;
+  const remainingCredit = Math.round((totalAmount - normalizedPaidAmount) * 100) / 100;
+
   const [bill] = await db.insert(purchaseBillsTable).values({
     userId,
     supplierName: resolvedSupplier,
@@ -359,8 +368,9 @@ router.post("/inventory/purchase-bills/bulk-create", requireAuth, async (req, re
     billNumber: billNumber.trim(),
     billDate: billDate ? new Date(billDate) : new Date(),
     totalAmount: totalAmount.toString(),
+    paidAmount: normalizedPaidAmount.toString(),
     notes: notes?.trim() ?? null,
-    isCredit: isCredit === true || isCredit === "true",
+    isCredit: remainingCredit > 0,
   }).returning();
 
   for (const ri of resolvedItems) {
@@ -376,16 +386,29 @@ router.post("/inventory/purchase-bills/bulk-create", requireAuth, async (req, re
   }
 
   // Auto-create supplier credit when purchased on credit
-  if (isCredit === true || isCredit === "true") {
+  if (creditPurchase && remainingCredit > 0) {
     await db.insert(creditsTable).values({
       userId,
       customerName: resolvedSupplier,
       phone: null,
-      amount: totalAmount.toString(),
-      description: `Purchase Bill #${bill.billNumber} — ${resolvedSupplier} (${new Date(bill.billDate).toLocaleDateString("en-PK")})`,
+      amount: remainingCredit.toString(),
+      description: `Purchase Bill #${bill.billNumber} — remaining supplier credit`,
       type: "received",
       status: "pending",
       dueDate: null,
+    });
+  }
+
+  if (normalizedPaidAmount > 0) {
+    await db.insert(entriesTable).values({
+      userId,
+      type: "cash_out",
+      amount: normalizedPaidAmount.toString(),
+      description: `Payment to supplier ${resolvedSupplier} against Purchase Bill #${bill.billNumber}`,
+      paymentMethod: paymentMethod === "digital" ? "digital" : "cash",
+      isCredit: false,
+      customerName: resolvedSupplier,
+      entryDate: billDate ? new Date(billDate) : new Date(),
     });
   }
 
@@ -393,6 +416,7 @@ router.post("/inventory/purchase-bills/bulk-create", requireAuth, async (req, re
     ...formatBill(bill),
     itemCount: resolvedItems.length,
     newProductCount: resolvedItems.filter(r => r.isNew).length,
+    remainingCredit,
   });
 });
 

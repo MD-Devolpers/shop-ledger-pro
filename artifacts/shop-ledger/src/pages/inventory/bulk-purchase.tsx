@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, Save, ArrowLeft, ClipboardList } from "lucide-react";
+import { Plus, Trash2, Save, ArrowLeft, ClipboardList, Banknote, Smartphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -87,6 +87,9 @@ export default function BulkPurchase() {
   const [billDate, setBillDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [notes, setNotes] = useState("");
   const [isCredit, setIsCredit] = useState(false);
+  const [creditMode, setCreditMode] = useState<"full" | "partial">("full");
+  const [paidNow, setPaidNow] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "digital">("cash");
   const [rows, setRows] = useState<Row[]>(() => Array.from({ length: 10 }, () => newRow()));
 
   // Bill-level company: "" = not selected, "mix" = mixed companies, otherwise company id
@@ -171,6 +174,8 @@ export default function BulkPurchase() {
   const totalAmount = validRows.reduce((sum, r) => {
     return sum + parseFloat(r.quantity || "0") * parseFloat(r.purchasePrice || "0");
   }, 0);
+  const parsedPaidNow = creditMode === "partial" ? Number(paidNow || 0) : 0;
+  const remainingCredit = Math.max(0, totalAmount - (Number.isFinite(parsedPaidNow) ? parsedPaidNow : 0));
 
   const handleSave = async () => {
     if (!billNumber.trim()) {
@@ -182,6 +187,10 @@ export default function BulkPurchase() {
     const dupes = validRows.filter(r => isDuplicate(r));
     if (dupes.length > 0) {
       toast({ title: `Duplicate products: ${[...new Set(dupes.map(r => r.name))].join(", ")}`, variant: "destructive" }); return;
+    }
+    if (isCredit && (!Number.isFinite(parsedPaidNow) || parsedPaidNow < 0 || parsedPaidNow > totalAmount)) {
+      toast({ title: "Paid amount is invalid", description: "Enter an amount between zero and the bill total.", variant: "destructive" });
+      return;
     }
     // Warn about company mismatches for existing products
     const mismatchCount = validRows.filter(hasMismatch).length;
@@ -209,15 +218,19 @@ export default function BulkPurchase() {
         supplierName: isMix ? "Mix Companies" : undefined,
         items: validRows,
         isCredit,
+        paidAmount: isCredit ? parsedPaidNow : totalAmount,
+        paymentMethod,
         updateProductCompany: updateProductCompanies,
-      } as any);
+      });
       toast({
         title: `✅ Bill #${result.billNumber} saved!`,
-        description: `${result.itemCount} products · ${result.newProductCount} new · Total: ${fmt(result.totalAmount)}`,
+        description: isCredit
+          ? `${fmt(result.paidAmount)} paid · ${fmt(result.remainingCredit)} supplier credit`
+          : `${result.itemCount} products · Paid in full: ${fmt(result.totalAmount)}`,
       });
       setBillNumber(""); setNotes("");
       setBillDate(format(new Date(), "yyyy-MM-dd"));
-      setIsCredit(false);
+      setIsCredit(false); setCreditMode("full"); setPaidNow(""); setPaymentMethod("cash");
       setBillCompanyId("");
       setUpdateProductCompanies(false);
       stickyCompanyRef.current = "";
@@ -345,6 +358,49 @@ export default function BulkPurchase() {
           </Button>
         </div>
       </div>
+
+      {isCredit && (
+        <div className="flex flex-wrap items-center gap-3 px-3 py-2.5 border-b border-orange-200 bg-orange-50/70 shrink-0 animate-in slide-in-from-top-2 duration-200">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-orange-700">Supplier payment</p>
+            <div className="flex gap-1 mt-1">
+              <button type="button" data-testid="credit-mode-full" onClick={() => { setCreditMode("full"); setPaidNow(""); }}
+                className={`h-8 px-3 rounded-md border text-xs font-semibold ${creditMode === "full" ? "bg-orange-600 border-orange-600 text-white" : "bg-white border-orange-200 text-orange-700"}`}>
+                Full Credit
+              </button>
+              <button type="button" data-testid="credit-mode-partial" onClick={() => setCreditMode("partial")}
+                className={`h-8 px-3 rounded-md border text-xs font-semibold ${creditMode === "partial" ? "bg-orange-600 border-orange-600 text-white" : "bg-white border-orange-200 text-orange-700"}`}>
+                 Partial / Manual
+              </button>
+            </div>
+          </div>
+          {creditMode === "partial" && (
+            <>
+              <div>
+                <label className="text-[10px] font-medium uppercase tracking-wide text-orange-700">Pay Now Amount</label>
+                <Input data-testid="input-credit-paid-now" type="number" min={0} max={totalAmount} step="0.01"
+                  className="h-8 w-36 mt-1 bg-white tabular-nums" placeholder="0" value={paidNow} onChange={e => setPaidNow(e.target.value)} />
+              </div>
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-orange-700">Method</p>
+                <div className="flex gap-1 mt-1">
+                  {(["cash", "digital"] as const).map(method => (
+                    <button key={method} type="button" onClick={() => setPaymentMethod(method)}
+                      className={`h-8 px-3 rounded-md border text-xs font-semibold flex items-center gap-1.5 ${paymentMethod === method ? "bg-slate-800 border-slate-800 text-white" : "bg-white border-orange-200 text-slate-700"}`}>
+                      {method === "cash" ? <Banknote className="h-3.5 w-3.5" /> : <Smartphone className="h-3.5 w-3.5" />}
+                      {method === "cash" ? "Cash" : "Digital"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+          <div className="ml-auto text-right">
+            <p className="text-[10px] uppercase tracking-wide text-orange-700">Remaining Supplier Credit</p>
+            <p data-testid="credit-remaining" className="text-lg font-bold text-orange-800 tabular-nums">{fmt(remainingCredit)}</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Table ── */}
       <div className="flex-1 overflow-auto" ref={tableRef}>

@@ -44,6 +44,12 @@ export interface PurchaseBill {
   items?: PurchaseBillItem[];
 }
 
+export interface BulkPurchaseResult extends PurchaseBill {
+  itemCount: number;
+  newProductCount: number;
+  remainingCredit: number;
+}
+
 export interface ProductSaleItem {
   id: number; saleId: number; productId: number; productName: string | null; productCode: string | null;
   quantity: number; purchasePrice: number; salePrice: number; discount: number; discountType: string;
@@ -368,6 +374,9 @@ export function useCreatePurchaseBill() {
       qc.invalidateQueries({ queryKey: PRODUCTS_KEY });
       qc.invalidateQueries({ queryKey: ["inventory", "stock-value"] });
       qc.invalidateQueries({ queryKey: ["inventory", "reorder"] });
+      qc.invalidateQueries({ queryKey: ["inventory", "supplier-balance"] });
+      qc.invalidateQueries({ predicate: query => String(query.queryKey?.[0] ?? "").includes("/api/credits") });
+      qc.invalidateQueries({ predicate: query => String(query.queryKey?.[0] ?? "").includes("/api/entries") });
     },
   });
 }
@@ -390,6 +399,7 @@ export function useBulkCreatePurchaseBill() {
     mutationFn: (data: {
       companyId?: string | number; supplierName?: string; billNumber: string; billDate?: string;
       notes?: string; items: BulkPurchaseRow[]; updateProductCompany?: boolean;
+      isCredit?: boolean; mixed?: boolean; paidAmount?: number; paymentMethod?: "cash" | "digital";
     }) => {
       // API expects purchaseRate/saleRate; BulkPurchaseRow stores them as purchasePrice/salePrice
       const payload = {
@@ -400,7 +410,7 @@ export function useBulkCreatePurchaseBill() {
           saleRate: r.salePrice,
         })),
       };
-      return apiFetch<{ id: number; billNumber: string; totalAmount: number; itemCount: number; newProductCount: number }>(
+      return apiFetch<BulkPurchaseResult>(
         "/api/inventory/purchase-bills/bulk-create", { method: "POST", body: JSON.stringify(payload) }
       );
     },
@@ -409,6 +419,10 @@ export function useBulkCreatePurchaseBill() {
       qc.invalidateQueries({ queryKey: PRODUCTS_KEY });
       qc.invalidateQueries({ queryKey: ["inventory", "stock-value"] });
       qc.invalidateQueries({ queryKey: ["inventory", "reorder"] });
+      qc.invalidateQueries({ queryKey: ["inventory", "supplier-balance"] });
+      qc.invalidateQueries({ predicate: query => String(query.queryKey?.[0] ?? "").includes("/api/credits") });
+      qc.invalidateQueries({ predicate: query => String(query.queryKey?.[0] ?? "").includes("/api/entries") });
+      qc.invalidateQueries({ predicate: query => String(query.queryKey?.[0] ?? "").includes("/api/reports/summary") });
     },
   });
 }
