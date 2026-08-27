@@ -3,3 +3,13 @@ PassengerStartupFile index.js
 PassengerAppRoot /home/u412659001/domains/shop-ledger.online/nodejs
 PassengerAppType node
 PassengerBaseURI /
+
+# Always revalidate the app shell and service worker so installed browsers
+# receive new frontend bundles after a deployment.
+<IfModule mod_headers.c>
+  <FilesMatch "^(index\.html|sw\.js|registerSW\.js|manifest\.json|manifest\.webmanifest)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+</IfModule>
