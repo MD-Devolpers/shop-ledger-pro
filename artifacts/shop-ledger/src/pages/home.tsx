@@ -743,7 +743,9 @@ export default function Home() {
                     <span>
                       {entryType === "cash_in" && isFundTransfer
                         ? "This payment will be saved under Received Credits — the customer's pending digital payment will appear in your Credits page."
-                        : "This entry will also be saved on the Credits page. Selecting an existing customer will add to their existing balance."}
+                        : entryType === "cash_out"
+                          ? "Cash Out will reduce the selected Cash/Digital balance and also be saved on the Credits page."
+                          : "This entry will also be saved on the Credits page. Selecting an existing customer will add to their existing balance."}
                     </span>
                   </div>
                   {/* Customer name for credit — hidden in digital mode since it's already in the blue box */}

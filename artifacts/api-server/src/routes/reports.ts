@@ -89,14 +89,16 @@ router.get("/reports/summary", requireAuth, async (req, res): Promise<void> => {
     const profit = entry.profit ? parseFloat(entry.profit) : 0;
     totalProfit += profit;
 
-    // Credit entries do NOT count toward cash/digital balance
-    if (entry.isCredit) {
-      if (entry.type === "cash_in") {
-        totalCreditGiven += amount; // someone owes you
-      } else {
-        totalCreditReceived += amount; // you owe someone
-      }
+    // Customer/supplier credit received on Cash In is not money collected yet,
+    // so it must not increase cash or digital balances. A Cash Out credit is
+    // different: the cash/digital money was actually given out, while the
+    // credit record tracks who it was given to.
+    if (entry.isCredit && entry.type === "cash_in") {
+      totalCreditGiven += amount; // someone owes you
       continue;
+    }
+    if (entry.isCredit && entry.type === "cash_out") {
+      totalCreditReceived += amount; // keep the outstanding credit tracked
     }
 
     if (entry.paymentMethod === "cash") {
