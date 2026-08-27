@@ -7,7 +7,6 @@ import {
   useListEntries,
   useDeleteEntry,
   useListCustomers,
-  useGetProfitReport,
   getGetReportSummaryQueryKey,
   getListEntriesQueryKey,
   getListCreditsQueryKey,
@@ -66,7 +65,6 @@ export default function Home() {
   const isFundOperationRef = useRef(false);
 
   const { data: summary, isLoading: summaryLoading } = useGetReportSummary();
-  const { data: monthlyProfit } = useGetProfitReport({ period: "monthly" });
   const { data: todayEntries, isLoading: entriesLoading } = useListEntries({
     date: new Date().toISOString().split("T")[0],
   });
@@ -333,18 +331,6 @@ export default function Home() {
                 .filter((e) => e.type === "cash_out" && !e.isFundOperation && (e.description ?? "").toLowerCase().includes("product return"))
                 .reduce((s, e) => s + e.amount, 0)
             )}
-          </p>
-        </div>
-        <div className="bg-card border rounded-xl p-3 text-center">
-          <p className="text-xs text-muted-foreground">Month Profit</p>
-          <p className="text-lg font-bold text-green-600" data-testid="total-profit">
-            {formatCurrency(monthlyProfit?.totalProfit ?? 0)}
-          </p>
-        </div>
-        <div className="bg-card border rounded-xl p-3 text-center">
-          <p className="text-xs text-muted-foreground">Total Credit</p>
-          <p className="text-lg font-bold text-amber-600" data-testid="total-credit">
-            {formatCurrency(summary?.totalCredit ?? 0)}
           </p>
         </div>
       </div>
