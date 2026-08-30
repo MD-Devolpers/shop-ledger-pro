@@ -315,8 +315,14 @@ export default function Entries() {
           : {};
 
   const { data: allEntries, isLoading } = useListEntries(queryParams);
-  const { data: saleHistory = [], isLoading: isSaleHistoryLoading } = useListProductSales();
-  const { data: returnHistory = [] } = useListProductReturns();
+  const { data: saleHistory = [], isLoading: isSaleHistoryLoading } = useListProductSales(
+    undefined,
+    tab === "sale_history",
+  );
+  const { data: returnHistory = [] } = useListProductReturns(
+    undefined,
+    tab === "sale_history",
+  );
 
   const isSaleEntry = (entry: Entry) =>
     (entry.source === "product_sale" || entry.source === "mobile_sale") &&
