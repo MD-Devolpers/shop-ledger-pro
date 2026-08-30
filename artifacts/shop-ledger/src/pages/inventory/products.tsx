@@ -43,7 +43,7 @@ function RestockDialog({
   onClose: () => void;
 }) {
   const { toast } = useToast();
-  const { data: companies = [] } = useListCompanies();
+  const { data: companies = [] } = useListCompanies(open);
   const createBill = useCreatePurchaseBill();
 
   const [supplier, setSupplier] = useState("");
