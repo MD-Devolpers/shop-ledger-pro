@@ -102,7 +102,7 @@ export default function Landing() {
       <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center">
-            <img src="/logo.png?v=2" alt="Ledger Entries" className="w-56 h-auto object-contain" />
+            <img src="/logo.png?v=3" alt="Ledger Entries" className="w-56 h-auto object-contain" />
           </div>
           <div className="flex items-center gap-2">
             <Link href="/login">
@@ -286,7 +286,7 @@ export default function Landing() {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 text-sm text-muted-foreground">
           {/* Logo + domain */}
           <div className="flex flex-col items-center sm:items-start gap-2">
-            <img src="/logo.png?v=2" alt="Ledger Entries" className="w-64 h-auto object-contain" />
+            <img src="/logo.png?v=3" alt="Ledger Entries" className="w-64 h-auto object-contain" />
             <a
               href="https://shop-ledger.online"
               target="_blank"
