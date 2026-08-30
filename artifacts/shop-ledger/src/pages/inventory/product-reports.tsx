@@ -9,13 +9,18 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, Printer, Download, Search, TrendingUp, ShoppingBag, BarChart3, Boxes, CalendarDays, Package } from "lucide-react";
+import { Eye, Pencil, Printer, Download, Search, TrendingUp, ShoppingBag, BarChart3, Boxes, CalendarDays, Package } from "lucide-react";
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns";
+import { SaleEditDialog } from "@/components/sale-edit-dialog";
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
 }
 function fmtNum(n: number) { return n.toLocaleString("en-PK"); }
+function safeDate(value: string | Date, pattern: string, fallback = "Date unavailable") {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? fallback : format(date, pattern);
+}
 function saleProductLabel(sale: ProductSale) {
   const names = [...new Set((sale.items ?? []).map(item => item.productName?.trim()).filter(Boolean))] as string[];
   if (names.length === 1) return names[0];
@@ -69,7 +74,7 @@ function BillModal({ saleId, open, onClose }: { saleId: number | null; open: boo
   }
 
   if (!sale) return null;
-  const saleDate = format(new Date(sale.saleDate), "dd MMM yyyy");
+  const saleDate = safeDate(sale.saleDate, "dd MMM yyyy");
   const items = sale.items ?? [];
 
   return (
@@ -145,7 +150,7 @@ function BillModal({ saleId, open, onClose }: { saleId: number | null; open: boo
 
 // ─── Sales Table ──────────────────────────────────────────────────────────────
 
-function SalesTable({ sales, onViewBill }: { sales: ProductSale[]; onViewBill: (id: number) => void }) {
+function SalesTable({ sales, onViewBill, onEdit }: { sales: ProductSale[]; onViewBill: (id: number) => void; onEdit: (id: number) => void }) {
   if (sales.length === 0) return (
     <div className="text-center py-12 text-muted-foreground">
       <ShoppingBag className="h-10 w-10 mx-auto mb-2 opacity-30" />
@@ -164,15 +169,20 @@ function SalesTable({ sales, onViewBill }: { sales: ProductSale[]; onViewBill: (
               {s.isCredit && <Badge className="text-xs bg-yellow-100 text-yellow-800">Credit</Badge>}
               <Badge variant="outline" className="text-xs capitalize">{s.paymentMethod}</Badge>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">{format(new Date(s.saleDate), "dd MMM yyyy, h:mm a")}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{safeDate(s.saleDate, "dd MMM yyyy, h:mm a")}</p>
           </div>
           <div className="flex gap-4 shrink-0 text-sm">
             <div className="text-center"><p className="text-muted-foreground text-xs">Amount</p><p className="font-bold">{fmt(s.totalAmount)}</p></div>
             <div className="text-center"><p className="text-muted-foreground text-xs">Profit</p><p className={`font-bold ${s.totalProfit >= 0 ? "text-green-700" : "text-red-600"}`}>{fmt(s.totalProfit)}</p></div>
           </div>
-          <Button size="sm" variant="outline" onClick={() => onViewBill(s.id)}>
-            <Eye className="h-3.5 w-3.5 mr-1" />View Bill
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => onEdit(s.id)}>
+              <Pencil className="h-3.5 w-3.5 mr-1" />Edit
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onViewBill(s.id)}>
+              <Eye className="h-3.5 w-3.5 mr-1" />View Bill
+            </Button>
+          </div>
         </div>
       ))}
     </div>
@@ -731,6 +741,7 @@ export default function ProductReports() {
   const [dateTo, setDateTo] = useState("");
   const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>("custom");
   const [billSaleId, setBillSaleId] = useState<number | null>(null);
+  const [editSaleId, setEditSaleId] = useState<number | null>(null);
 
   function setQuickPeriod(period: SalesPeriod) {
     if (period === "custom") {
@@ -760,7 +771,7 @@ export default function ProductReports() {
 
   const dateWise: Record<string, ProductSale[]> = {};
   for (const s of sales) {
-    const key = format(new Date(s.saleDate), "dd MMM yyyy");
+    const key = safeDate(s.saleDate, "dd MMM yyyy", "Unknown date");
     if (!dateWise[key]) dateWise[key] = [];
     dateWise[key].push(s);
   }
@@ -837,7 +848,7 @@ export default function ProductReports() {
                 <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setDateFrom(""); setDateTo(""); setSalesPeriod("custom"); }}>Clear</Button>
               )}
             </div>
-            {isLoading ? <p className="text-muted-foreground text-sm text-center py-10">Loading...</p> : <SalesTable sales={sales} onViewBill={id => setBillSaleId(id)} />}
+            {isLoading ? <p className="text-muted-foreground text-sm text-center py-10">Loading...</p> : <SalesTable sales={sales} onViewBill={id => setBillSaleId(id)} onEdit={id => setEditSaleId(id)} />}
           </div>
         </TabsContent>
 
@@ -863,7 +874,7 @@ export default function ProductReports() {
                         <span className={dayProfit >= 0 ? "text-green-700" : "text-red-600"}>Profit: <strong>{fmt(dayProfit)}</strong></span>
                       </div>
                     </div>
-                    <SalesTable sales={daySales} onViewBill={id => setBillSaleId(id)} />
+                    <SalesTable sales={daySales} onViewBill={id => setBillSaleId(id)} onEdit={id => setEditSaleId(id)} />
                   </div>
                 );
               })}
@@ -877,6 +888,9 @@ export default function ProductReports() {
       </Tabs>
 
       <BillModal saleId={billSaleId} open={!!billSaleId} onClose={() => setBillSaleId(null)} />
+      {editSaleId != null && (
+        <SaleEditDialog saleId={editSaleId} open onClose={() => setEditSaleId(null)} />
+      )}
     </div>
   );
 }
