@@ -82,7 +82,6 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     const handleOnline = async () => {
       setIsOnline(true);
       await processQueue();
-      queryClient.invalidateQueries();
     };
 
     const handleOffline = () => setIsOnline(false);
@@ -93,7 +92,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [processQueue, queryClient]);
+  }, [processQueue]);
 
   useEffect(() => {
     if (interceptorInstalled.current) return;
