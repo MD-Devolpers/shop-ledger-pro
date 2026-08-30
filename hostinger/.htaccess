@@ -4,6 +4,17 @@ PassengerAppRoot /home/u412659001/domains/shop-ledger.online/nodejs
 PassengerAppType node
 PassengerBaseURI /
 
+# Fingerprinted frontend assets can be cached permanently because each build
+# gives them a new filename. This makes repeat visits and route chunks faster.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|woff|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(png|jpg|jpeg|webp|svg|ico)$">
+    Header set Cache-Control "public, max-age=86400"
+  </FilesMatch>
+</IfModule>
+
 # Always revalidate the app shell and service worker so installed browsers
 # receive new frontend bundles after a deployment.
 <IfModule mod_headers.c>
