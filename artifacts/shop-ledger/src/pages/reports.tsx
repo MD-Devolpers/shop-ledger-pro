@@ -64,12 +64,24 @@ export default function Reports() {
 
   const { data: monthlyProfitReport, isLoading: monthlyProfitLoading } = useGetProfitReport(
     { period: "monthly", date: profitMonthDateStr },
-    { query: { queryKey: [...getGetProfitReportQueryKey({ period: "monthly", date: profitMonthDateStr }), "monthly-tab"], refetchInterval: 30000 } }
+    {
+      query: {
+        queryKey: [...getGetProfitReportQueryKey({ period: "monthly", date: profitMonthDateStr }), "monthly-tab"],
+        enabled: reportTab === "monthly-profit",
+        staleTime: 5 * 60_000,
+      },
+    }
   );
 
   const { data: yearlyProfitReport } = useGetProfitReport(
     { period: "yearly" },
-    { query: { queryKey: [...getGetProfitReportQueryKey({ period: "yearly" }), "yearly-chart"], refetchInterval: 60000 } }
+    {
+      query: {
+        queryKey: [...getGetProfitReportQueryKey({ period: "yearly" }), "yearly-chart"],
+        enabled: reportTab === "monthly-profit",
+        staleTime: 5 * 60_000,
+      },
+    }
   );
 
   // Table tab — compute API params
