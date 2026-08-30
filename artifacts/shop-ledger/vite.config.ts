@@ -17,13 +17,26 @@ export default defineConfig({
     tailwindcss(),
     runtimeErrorOverlay(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       injectRegister: "auto",
+      includeManifestIcons: false,
       workbox: {
-        skipWaiting: true,
-        clientsClaim: true,
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2}"],
+        skipWaiting: false,
+        clientsClaim: false,
+        cleanupOutdatedCaches: true,
+        // Keep service-worker installation lightweight. Hashed JavaScript
+        // chunks are cached only when a page actually needs them.
+        globPatterns: ["index.html", "assets/*.css", "favicon.svg", "icon-192.png"],
         runtimeCaching: [
+          {
+            urlPattern: /\/assets\/.*\.js$/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "app-script-chunks",
+              expiration: { maxEntries: 120, maxAgeSeconds: 30 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             urlPattern: /^https:\/\/shop-ledger-pro\.onrender\.com\/api\/.*/i,
             handler: "NetworkFirst",
