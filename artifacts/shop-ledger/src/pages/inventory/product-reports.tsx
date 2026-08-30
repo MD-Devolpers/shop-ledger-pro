@@ -16,6 +16,12 @@ function fmt(n: number) {
   return new Intl.NumberFormat("en-PK", { style: "currency", currency: "PKR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
 }
 function fmtNum(n: number) { return n.toLocaleString("en-PK"); }
+function saleProductLabel(sale: ProductSale) {
+  const names = [...new Set((sale.items ?? []).map(item => item.productName?.trim()).filter(Boolean))] as string[];
+  if (names.length === 1) return names[0];
+  if (names.length > 1) return `${names[0]} +${names.length - 1} more`;
+  return "Product Sale";
+}
 
 // ─── Bill Print Modal ─────────────────────────────────────────────────────────
 
@@ -152,7 +158,8 @@ function SalesTable({ sales, onViewBill }: { sales: ProductSale[]; onViewBill: (
         <div key={s.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 border rounded-xl bg-card hover:bg-muted/20 transition-colors">
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-sm">Sale #{s.id}</span>
+              <span className="font-medium text-sm truncate" title={saleProductLabel(s)}>{saleProductLabel(s)}</span>
+              <span className="text-muted-foreground text-xs">• Bill #{s.id}</span>
               {s.customerName && <span className="text-muted-foreground text-sm">• {s.customerName}</span>}
               {s.isCredit && <Badge className="text-xs bg-yellow-100 text-yellow-800">Credit</Badge>}
               <Badge variant="outline" className="text-xs capitalize">{s.paymentMethod}</Badge>
