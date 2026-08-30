@@ -64,6 +64,25 @@ export interface ProductSale {
   items?: ProductSaleItem[];
 }
 
+export interface UpdateProductSaleInput {
+  customerName?: string;
+  contactNumber?: string;
+  paymentMethod: "cash" | "digital";
+  isCredit: boolean;
+  discount?: number;
+  discountType?: "fixed" | "percent";
+  notes?: string;
+  saleDate: string;
+  reason?: string;
+  items: Array<{
+    productId: number;
+    quantity: number;
+    salePrice: number;
+    discount: number;
+    discountType: "fixed" | "percent";
+  }>;
+}
+
 export interface BillSettings { shopName: string; address: string; mobile: string; logo: string | null; footer: string; quickProductShortcut: string | null; }
 
 export interface CompanyReplacement {
@@ -131,8 +150,13 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 // ─── Companies ────────────────────────────────────────────────────────────────
 
 export const COMPANIES_KEY = ["inventory", "companies"] as const;
-export function useListCompanies() {
-  return useQuery({ queryKey: COMPANIES_KEY, queryFn: () => apiFetch<Company[]>("/api/inventory/companies") });
+export function useListCompanies(enabled = true) {
+  return useQuery({
+    queryKey: COMPANIES_KEY,
+    queryFn: () => apiFetch<Company[]>("/api/inventory/companies"),
+    enabled,
+    staleTime: 10 * 60_000,
+  });
 }
 export function useCreateCompany() {
   const qc = useQueryClient();
@@ -430,7 +454,10 @@ export function useBulkCreatePurchaseBill() {
 // ─── Product Sales ────────────────────────────────────────────────────────────
 
 export const SALES_KEY = ["inventory", "product-sales"] as const;
-export function useListProductSales(params?: { search?: string; dateFrom?: string; dateTo?: string; paymentMethod?: string }) {
+export function useListProductSales(
+  params?: { search?: string; dateFrom?: string; dateTo?: string; paymentMethod?: string },
+  enabled = true,
+) {
   const qs = new URLSearchParams();
   if (params?.search) qs.set("search", params.search);
   if (params?.dateFrom) qs.set("dateFrom", params.dateFrom);
@@ -440,6 +467,7 @@ export function useListProductSales(params?: { search?: string; dateFrom?: strin
   return useQuery({
     queryKey: [...SALES_KEY, params],
     queryFn: () => apiFetch<ProductSale[]>(`/api/inventory/product-sales${query ? `?${query}` : ""}`),
+    enabled,
   });
 }
 export function useGetProductSale(id: number | null) {
@@ -454,6 +482,32 @@ export function useCreateProductSale() {
   return useMutation({
     mutationFn: (data: any) => apiFetch<ProductSale>("/api/inventory/product-sales", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: SALES_KEY }); qc.invalidateQueries({ queryKey: PRODUCTS_KEY }); },
+  });
+}
+export function useUpdateProductSale() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: UpdateProductSaleInput }) =>
+      apiFetch<ProductSale>(`/api/inventory/product-sales/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (_sale, variables) => {
+      qc.invalidateQueries({ queryKey: SALES_KEY });
+      qc.invalidateQueries({ queryKey: PRODUCTS_KEY });
+      qc.invalidateQueries({ queryKey: ["inventory", "stock-value"] });
+      qc.invalidateQueries({ queryKey: ["inventory", "sale-history", variables.id] });
+      qc.invalidateQueries({
+        predicate: query => {
+          const key = query.queryKey?.[0];
+          return typeof key === "string" && (
+            key.startsWith("/api/entries") ||
+            key.startsWith("/api/credits") ||
+            key.startsWith("/api/reports")
+          );
+        },
+      });
+    },
   });
 }
 export function useCreateProductReturn() {
@@ -474,10 +528,18 @@ export function useCreateProductReturn() {
     },
   });
 }
-export function useListProductReturns() {
+export function useListProductReturns(
+  params?: { dateFrom?: string; dateTo?: string },
+  enabled = true,
+) {
+  const qs = new URLSearchParams();
+  if (params?.dateFrom) qs.set("dateFrom", params.dateFrom);
+  if (params?.dateTo) qs.set("dateTo", params.dateTo);
+  const query = qs.toString();
   return useQuery({
-    queryKey: ["inventory", "product-returns"],
-    queryFn: () => apiFetch<any[]>("/api/inventory/product-returns"),
+    queryKey: ["inventory", "product-returns", params],
+    queryFn: () => apiFetch<any[]>(`/api/inventory/product-returns${query ? `?${query}` : ""}`),
+    enabled,
   });
 }
 
@@ -633,7 +695,22 @@ export function useCancelProductSale() {
   return useMutation({
     mutationFn: ({ id, reason }: { id: number; reason?: string }) =>
       apiFetch<{ success: boolean; message: string }>(`/api/inventory/product-sales/${id}/cancel`, { method: "POST", body: JSON.stringify({ reason }) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: SALES_KEY }); qc.invalidateQueries({ queryKey: PRODUCTS_KEY }); },
+    onSuccess: (_result, variables) => {
+      qc.invalidateQueries({ queryKey: SALES_KEY });
+      qc.invalidateQueries({ queryKey: PRODUCTS_KEY });
+      qc.invalidateQueries({ queryKey: ["inventory", "stock-value"] });
+      qc.invalidateQueries({ queryKey: ["inventory", "sale-history", variables.id] });
+      qc.invalidateQueries({
+        predicate: query => {
+          const key = query.queryKey?.[0];
+          return typeof key === "string" && (
+            key.startsWith("/api/entries") ||
+            key.startsWith("/api/credits") ||
+            key.startsWith("/api/reports")
+          );
+        },
+      });
+    },
   });
 }
 
