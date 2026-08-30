@@ -36,7 +36,20 @@ import { SyncStatus, OfflineBanner } from "@/components/sync-status";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const routePreloaders: Record<string, () => Promise<unknown>> = {
+  "/entries": () => import("@/pages/entries"),
+  "/credits": () => import("@/pages/credits"),
+  "/inventory/products": () => import("@/pages/inventory/products"),
+  "/inventory/purchase-bills": () => import("@/pages/inventory/purchase-bills"),
+  "/inventory/product-reports": () => import("@/pages/inventory/product-reports"),
+  "/inventory/mobile-purchase": () => import("@/pages/inventory/mobile-purchase"),
+};
+
+function preloadRoute(href: string) {
+  void routePreloaders[href]?.();
+}
 
 const bottomNavItems = [
   { icon: Home, label: "Home", href: "/app" },
@@ -54,6 +67,7 @@ const moreItems = [
   { icon: ListOrdered, label: "Products", href: "/inventory/products" },
   { icon: PackagePlus, label: "Bulk Purchase", href: "/inventory/bulk-purchase" },
   { icon: ShoppingCart, label: "Product Sale", href: "/inventory/product-sale" },
+  { icon: History, label: "Sale History", href: "/inventory/product-reports?tab=sales" },
   { icon: ClipboardList, label: "Purchase Report", href: "/inventory/purchase-bills" },
   { icon: RotateCcw, label: "Product Return", href: "/inventory/product-return" },
   { icon: PackageX, label: "Bulk Replacement", href: "/inventory/bulk-replacement" },
@@ -87,6 +101,8 @@ const sidebarNavItems = [
 const inventoryNavItems = [
   { icon: Package, label: "Inventory", href: "/inventory" },
   { icon: ListOrdered, label: "Products", href: "/inventory/products" },
+  { icon: ShoppingCart, label: "Product Sale", href: "/inventory/product-sale" },
+  { icon: History, label: "Sale History", href: "/inventory/product-reports?tab=sales" },
   { icon: ClipboardList, label: "Purchase Report", href: "/inventory/purchase-bills" },
   { icon: Star, label: "Quick Products", href: "/inventory/quick-products" },
   { icon: FileBarChart, label: "Product Reports", href: "/inventory/product-reports" },
@@ -124,6 +140,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { data: summary } = useGetReportSummary();
   const [moreOpen, setMoreOpen] = useState(false);
 
+  useEffect(() => {
+    const preloadTimer = window.setTimeout(() => {
+      preloadRoute("/inventory/purchase-bills");
+      preloadRoute("/inventory/product-reports");
+      preloadRoute("/entries");
+      preloadRoute("/credits");
+    }, 1_200);
+
+    return () => window.clearTimeout(preloadTimer);
+  }, []);
+
   const handleLogout = () => {
     logout.mutate(undefined, {
       onSuccess: () => setLocation("/"),
@@ -158,6 +185,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               variant={active ? "secondary" : "ghost"}
               className={`w-full justify-start ${active ? "font-semibold" : "font-normal text-muted-foreground"}`}
               onClick={onClick}
+              onMouseEnter={() => preloadRoute(item.href)}
+              onFocus={() => preloadRoute(item.href)}
+              onTouchStart={() => preloadRoute(item.href)}
               data-testid={`nav-${item.label.toLowerCase()}`}
             >
               <item.icon className={`mr-3 h-5 w-5 ${active ? "text-primary" : ""}`} />
@@ -171,7 +201,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const LogoMark = () => (
     <div className="flex items-center gap-2">
-      <img src="/logo.png?v=2" alt="Ledger Entries" className="w-44 h-auto object-contain" />
+      <img src="/logo.png?v=3" alt="Ledger Entries" className="w-44 h-auto object-contain" />
     </div>
   );
 
@@ -205,7 +235,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden md:flex flex-col w-64 border-r bg-card sticky top-0 h-screen">
         <div className="px-5 py-4 flex items-center">
-          <img src="/logo.png?v=2" alt="Ledger Entries" className="w-60 h-auto object-contain" />
+          <img src="/logo.png?v=3" alt="Ledger Entries" className="w-60 h-auto object-contain" />
         </div>
 
         {summary && (
@@ -273,6 +303,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Link key={item.href} href={item.href}>
               <div
                 className={`flex flex-col items-center justify-center p-1.5 min-w-[56px] ${active ? "text-primary" : "text-muted-foreground"}`}
+                onMouseEnter={() => preloadRoute(item.href)}
+                onFocus={() => preloadRoute(item.href)}
+                onTouchStart={() => preloadRoute(item.href)}
                 data-testid={`bottom-nav-${item.label.toLowerCase()}`}
               >
                 <div className={`mb-0.5 p-1 rounded-full ${active ? "bg-primary/10" : ""}`}>
@@ -345,6 +378,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Link key={item.href} href={item.href}>
                     <div
                       onClick={() => setMoreOpen(false)}
+                      onMouseEnter={() => preloadRoute(item.href)}
+                      onFocus={() => preloadRoute(item.href)}
+                      onTouchStart={() => preloadRoute(item.href)}
                       className={`flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl transition-colors ${
                         active
                           ? "bg-primary/10 text-primary"
