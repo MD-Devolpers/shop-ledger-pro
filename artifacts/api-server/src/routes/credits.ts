@@ -111,7 +111,7 @@ router.patch("/credits/:id", requireAuth, async (req, res): Promise<void> => {
   const [credit] = await db
     .update(creditsTable)
     .set(updateData)
-    .where(and(eq(creditsTable.id, params.data.id), eq(creditsTable.userId, userId)))
+    .where(and(eq(creditsTable.id, params.data.id), eq(creditsTable.userId, userId), isNull(creditsTable.deletedAt)))
     .returning();
 
   if (!credit) {
