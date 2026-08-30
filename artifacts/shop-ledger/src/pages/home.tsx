@@ -7,6 +7,7 @@ import {
   useListEntries,
   useDeleteEntry,
   useListCustomers,
+  getListCustomersQueryKey,
   getGetReportSummaryQueryKey,
   getListEntriesQueryKey,
   getListCreditsQueryKey,
@@ -63,18 +64,26 @@ export default function Home() {
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
   const [isFundOperationMode, setIsFundOperationMode] = useState(false);
   const isFundOperationRef = useRef(false);
+  const today = format(new Date(), "yyyy-MM-dd");
 
   const { data: summary, isLoading: summaryLoading } = useGetReportSummary();
   const { data: todayEntries, isLoading: entriesLoading } = useListEntries({
-    date: new Date().toISOString().split("T")[0],
+    date: today,
   });
-  const { data: productSales = [] } = useListProductSales();
-  const { data: productReturns = [] } = useListProductReturns();
-  // Fetch all customers (no filter) for the dropdown list
-  const { data: allCustomers } = useListCustomers({});
-  // Fetch filtered customers when user types
-  const { data: filteredCustomers } = useListCustomers({ q: customerSearch });
-  const customers = customerSearch ? filteredCustomers : allCustomers;
+  const { data: productSales = [] } = useListProductSales({ dateFrom: today, dateTo: today });
+  const { data: productReturns = [] } = useListProductReturns({ dateFrom: today, dateTo: today });
+  // Customer data is only needed while the credit dialog is in use.
+  const customerQueryParams = customerSearch ? { q: customerSearch } : {};
+  const { data: customers } = useListCustomers(
+    customerQueryParams,
+    {
+      query: {
+        queryKey: getListCustomersQueryKey(customerQueryParams),
+        enabled: dialogOpen,
+        staleTime: 5 * 60_000,
+      },
+    },
+  );
   const salesByEntryId = new Map<number, ProductSale>(
     productSales.filter(sale => sale.entryId != null).map(sale => [sale.entryId as number, sale])
   );
