@@ -192,7 +192,19 @@ router.post("/inventory/product-sales", requireAuth, async (req, res): Promise<v
       ? productNames[0]
       : `${productNames[0]} +${productNames.length - 1} more`;
   const description = `${productLabel}${customerName ? ` - ${customerName}` : ""}`;
-  const [entry] = await db.insert(entriesTable).values({
+  const creation = await db.transaction(async (tx) => {
+  for (const d of [...itemDetails].sort((a, b) => a.productId - b.productId)) {
+    const result = await tx.execute(sql`
+      UPDATE products
+      SET stock_qty = stock_qty - ${d.quantity}, updated_at = NOW()
+      WHERE id = ${d.productId} AND user_id = ${userId}
+        AND deleted_at IS NULL AND stock_qty >= ${d.quantity}
+      RETURNING id
+    `);
+    if (result.rowCount !== 1) throw new Error(`Insufficient stock for product ${d.productId}`);
+  }
+
+  const [entry] = await tx.insert(entriesTable).values({
     userId,
     type: "cash_in",
     amount: finalAmount.toString(),
@@ -210,7 +222,7 @@ router.post("/inventory/product-sales", requireAuth, async (req, res): Promise<v
   // If credit sale, create credits row
   let creditId: number | null = null;
   if (isCredit && customerName) {
-    const [credit] = await db.insert(creditsTable).values({
+    const [credit] = await tx.insert(creditsTable).values({
       userId,
       customerName,
       phone: contactNumber ?? null,
@@ -230,7 +242,7 @@ router.post("/inventory/product-sales", requireAuth, async (req, res): Promise<v
   }
 
   // Create sale record
-  const [sale] = await db.insert(productSalesTable).values({
+  const [sale] = await tx.insert(productSalesTable).values({
     userId,
     entryId: entry.id,
     creditId,
@@ -269,7 +281,7 @@ router.post("/inventory/product-sales", requireAuth, async (req, res): Promise<v
     const customDays = origItem.warrantyCustomDays ? parseInt(origItem.warrantyCustomDays) : null;
     const expiryDate = warranty ? computeWarrantyExpiry(saleDt, warranty, customDays ?? undefined) : null;
 
-    await db.insert(productSaleItemsTable).values({
+    await tx.insert(productSaleItemsTable).values({
       saleId: sale.id,
       productId: d.productId,
       quantity: d.quantity.toString(),
@@ -284,12 +296,223 @@ router.post("/inventory/product-sales", requireAuth, async (req, res): Promise<v
       warrantyExpiryDate: expiryDate,
     });
 
-    await db.execute(
-      sql`UPDATE products SET stock_qty = stock_qty - ${d.quantity} WHERE id = ${d.productId} AND user_id = ${userId}`
-    );
   }
 
-  res.status(201).json({ ...formatSale(sale), entryId: entry.id });
+  return { sale, entry };
+  }).catch(error => ({ error: error instanceof Error ? error.message : "Sale creation failed" }));
+
+  if ("error" in creation) { res.status(400).json({ error: creation.error }); return; }
+  res.status(201).json({ ...formatSale(creation.sale), entryId: creation.entry.id });
+});
+
+// Edit a sale and reconcile every linked accounting/stock effect atomically.
+router.patch("/inventory/product-sales/:id", requireAuth, async (req, res): Promise<void> => {
+  const userId = req.session!.userId!;
+  const id = parseInt(req.params.id, 10);
+  const {
+    customerName, contactNumber, paymentMethod = "cash", isCredit = false,
+    discount = 0, discountType = "fixed", notes, saleDate, items, reason,
+  } = req.body;
+
+  if (!Number.isInteger(id)) { res.status(400).json({ error: "Invalid sale ID" }); return; }
+  if (!Array.isArray(items) || items.length === 0) {
+    res.status(400).json({ error: "At least one product is required" }); return;
+  }
+  if (!["cash", "digital"].includes(paymentMethod) || !["fixed", "percent"].includes(discountType)) {
+    res.status(400).json({ error: "Invalid payment or discount type" }); return;
+  }
+  if (isCredit && !String(customerName ?? "").trim()) {
+    res.status(400).json({ error: "Customer name is required for a credit sale" }); return;
+  }
+  const parsedSaleDate = saleDate ? new Date(saleDate) : new Date();
+  if (Number.isNaN(parsedSaleDate.getTime())) {
+    res.status(400).json({ error: "Invalid sale date" }); return;
+  }
+
+  const parsedItems = items.map((item: any) => ({
+    productId: Number(item.productId),
+    quantity: Number(item.quantity),
+    salePrice: Number(item.salePrice),
+    discount: Number(item.discount ?? 0),
+    discountType: item.discountType ?? "fixed",
+  }));
+  const invalidItem = parsedItems.find(item =>
+    !Number.isInteger(item.productId) ||
+    !Number.isFinite(item.quantity) || item.quantity <= 0 ||
+    !Number.isFinite(item.salePrice) || item.salePrice < 0 ||
+    !Number.isFinite(item.discount) || item.discount < 0 ||
+    !["fixed", "percent"].includes(item.discountType)
+  );
+  if (invalidItem || new Set(parsedItems.map(item => item.productId)).size !== parsedItems.length) {
+    res.status(400).json({ error: invalidItem ? "Every product needs a valid quantity, price, and discount" : "The same product cannot appear twice" });
+    return;
+  }
+  const overallDiscount = Number(discount);
+  if (!Number.isFinite(overallDiscount) || overallDiscount < 0 || (discountType === "percent" && overallDiscount > 100)) {
+    res.status(400).json({ error: "Invalid overall discount" }); return;
+  }
+
+  const [actor] = await db.select({ username: usersTable.username })
+    .from(usersTable).where(eq(usersTable.id, userId));
+
+  const outcome = await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT id FROM product_sales WHERE id = ${id} AND user_id = ${userId} FOR UPDATE`);
+    const [sale] = await tx.select().from(productSalesTable)
+      .where(and(eq(productSalesTable.id, id), eq(productSalesTable.userId, userId), isNull(productSalesTable.deletedAt)));
+    if (!sale) return { error: "Sale not found", status: 404 } as const;
+    if ((sale.status ?? "active") === "cancelled") return { error: "A cancelled sale cannot be edited", status: 400 } as const;
+
+    const existingReturn = await tx.select({ id: productReturnsTable.id }).from(productReturnsTable)
+      .where(and(eq(productReturnsTable.userId, userId), eq(productReturnsTable.saleId, id))).limit(1);
+    if (existingReturn.length > 0) {
+      return { error: "A sale with product returns cannot be edited", status: 400 } as const;
+    }
+    if (sale.creditId) {
+      await tx.execute(sql`SELECT id FROM credits WHERE id = ${sale.creditId} AND user_id = ${userId} FOR UPDATE`);
+      const [linkedCredit] = await tx.select({ status: creditsTable.status }).from(creditsTable)
+        .where(and(eq(creditsTable.id, sale.creditId), eq(creditsTable.userId, userId)));
+      if (linkedCredit?.status === "paid") {
+        return { error: "A settled credit sale cannot be edited", status: 400 } as const;
+      }
+    }
+
+    const oldItems = await tx.select().from(productSaleItemsTable).where(eq(productSaleItemsTable.saleId, id));
+    const oldQuantityByProduct = new Map<number, number>();
+    const oldItemByProduct = new Map<number, typeof oldItems[number]>();
+    for (const item of oldItems) {
+      oldQuantityByProduct.set(item.productId, (oldQuantityByProduct.get(item.productId) ?? 0) + Number(item.quantity));
+      oldItemByProduct.set(item.productId, item);
+    }
+
+    const allProductIds = [...new Set([...oldQuantityByProduct.keys(), ...parsedItems.map(item => item.productId)])].sort((a, b) => a - b);
+    const productsById = new Map<number, typeof productsTable.$inferSelect>();
+    for (const productId of allProductIds) {
+      await tx.execute(sql`SELECT id FROM products WHERE id = ${productId} AND user_id = ${userId} FOR UPDATE`);
+      const [product] = await tx.select().from(productsTable)
+        .where(and(eq(productsTable.id, productId), eq(productsTable.userId, userId), isNull(productsTable.deletedAt)));
+      if (!product) return { error: `Product ${productId} not found`, status: 400 } as const;
+      productsById.set(productId, product);
+    }
+
+    let subtotal = 0;
+    let totalProfit = 0;
+    const newDetails = parsedItems.map(item => {
+      const product = productsById.get(item.productId)!;
+      const oldItem = oldItemByProduct.get(item.productId);
+      const available = Number(product.stockQty) + (oldQuantityByProduct.get(item.productId) ?? 0);
+      if (item.quantity > available) throw new Error(`Insufficient stock for ${product.name}. Available: ${available}`);
+      if (item.discountType === "percent" && item.discount > 100) throw new Error(`Discount for ${product.name} cannot exceed 100%`);
+      const gross = item.quantity * item.salePrice;
+      if (item.discountType === "fixed" && item.discount > gross) throw new Error(`Discount for ${product.name} cannot exceed its line total`);
+      const lineTotal = item.discountType === "percent" ? gross * (1 - item.discount / 100) : gross - item.discount;
+      const purchasePrice = oldItem ? Number(oldItem.purchasePrice) : Number(product.purchasePrice);
+      const profit = lineTotal - item.quantity * purchasePrice;
+      subtotal += lineTotal;
+      totalProfit += profit;
+      return { ...item, product, oldItem, purchasePrice, lineTotal, profit };
+    });
+    const finalAmount = discountType === "percent" ? subtotal * (1 - overallDiscount / 100) : subtotal - overallDiscount;
+    if (finalAmount < 0) return { error: "Overall discount cannot exceed the sale subtotal", status: 400 } as const;
+
+    for (const productId of allProductIds) {
+      const oldQty = oldQuantityByProduct.get(productId) ?? 0;
+      const newQty = newDetails.find(item => item.productId === productId)?.quantity ?? 0;
+      const delta = oldQty - newQty;
+      if (delta !== 0) {
+        await tx.execute(sql`UPDATE products SET stock_qty = stock_qty + ${delta}, updated_at = NOW() WHERE id = ${productId} AND user_id = ${userId}`);
+      }
+    }
+
+    await tx.delete(productSaleItemsTable).where(eq(productSaleItemsTable.saleId, id));
+    for (const detail of newDetails) {
+      await tx.insert(productSaleItemsTable).values({
+        saleId: id,
+        productId: detail.productId,
+        quantity: detail.quantity.toString(),
+        purchasePrice: detail.purchasePrice.toString(),
+        salePrice: detail.salePrice.toString(),
+        discount: detail.discount.toString(),
+        discountType: detail.discountType as "fixed" | "percent",
+        lineTotal: detail.lineTotal.toString(),
+        profit: detail.profit.toString(),
+        warrantyPeriod: detail.oldItem?.warrantyPeriod ?? null,
+        warrantyCustomDays: detail.oldItem?.warrantyCustomDays ?? null,
+        warrantyExpiryDate: detail.oldItem?.warrantyExpiryDate ?? null,
+      });
+    }
+
+    const cleanCustomerName = String(customerName ?? "").trim() || null;
+    const cleanContactNumber = String(contactNumber ?? "").trim() || null;
+    const cleanNotes = String(notes ?? "").trim() || null;
+    const productLabel = newDetails.length === 1 ? newDetails[0].product.name : `${newDetails[0].product.name} +${newDetails.length - 1} more`;
+    const entryDescription = `${productLabel}${cleanCustomerName ? ` - ${cleanCustomerName}` : ""}`;
+    const creditDescription = cleanNotes ? `${productLabel} - ${cleanNotes}` : productLabel;
+
+    if (sale.entryId) {
+      await tx.update(entriesTable).set({
+        amount: finalAmount.toString(), description: entryDescription,
+        paymentMethod: isCredit ? "cash" : paymentMethod, profit: totalProfit.toString(),
+        isCredit: !!isCredit, customerName: cleanCustomerName, contactNumber: cleanContactNumber,
+        entryDate: parsedSaleDate,
+      }).where(and(eq(entriesTable.id, sale.entryId), eq(entriesTable.userId, userId)));
+    }
+
+    let nextCreditId = sale.creditId;
+    if (isCredit && cleanCustomerName) {
+      if (sale.creditId) {
+        await tx.update(creditsTable).set({
+          customerName: cleanCustomerName, phone: cleanContactNumber, amount: finalAmount.toString(),
+          description: creditDescription, deletedAt: null,
+        }).where(and(eq(creditsTable.id, sale.creditId), eq(creditsTable.userId, userId)));
+      } else {
+        const [credit] = await tx.insert(creditsTable).values({
+          userId, customerName: cleanCustomerName, phone: cleanContactNumber,
+          amount: finalAmount.toString(), description: creditDescription, type: "given", status: "pending",
+        }).returning();
+        nextCreditId = credit.id;
+      }
+    } else if (sale.creditId) {
+      await tx.update(creditsTable).set({ deletedAt: new Date() })
+        .where(and(eq(creditsTable.id, sale.creditId), eq(creditsTable.userId, userId)));
+      nextCreditId = null;
+    }
+
+    const oldSnapshot = {
+      customerName: sale.customerName, contactNumber: sale.contactNumber, paymentMethod: sale.paymentMethod,
+      isCredit: sale.isCredit, totalAmount: Number(sale.totalAmount), totalProfit: Number(sale.totalProfit),
+      discount: Number(sale.discount), discountType: sale.discountType, notes: sale.notes, saleDate: sale.saleDate.toISOString(),
+      items: oldItems.map(item => ({ productId: item.productId, quantity: Number(item.quantity), salePrice: Number(item.salePrice), discount: Number(item.discount), discountType: item.discountType })),
+    };
+    const [updatedSale] = await tx.update(productSalesTable).set({
+      creditId: nextCreditId, customerName: cleanCustomerName, contactNumber: cleanContactNumber,
+      paymentMethod, isCredit: !!isCredit, totalAmount: finalAmount.toString(), totalProfit: totalProfit.toString(),
+      discount: overallDiscount.toString(), discountType, notes: cleanNotes, saleDate: parsedSaleDate,
+    }).where(and(eq(productSalesTable.id, id), eq(productSalesTable.userId, userId))).returning();
+    if (!updatedSale) return { error: "Sale update failed", status: 500 } as const;
+    const newSnapshot = {
+      customerName: cleanCustomerName, contactNumber: cleanContactNumber, paymentMethod, isCredit: !!isCredit,
+      totalAmount: finalAmount, totalProfit, discount: overallDiscount, discountType, notes: cleanNotes,
+      saleDate: parsedSaleDate.toISOString(),
+      items: newDetails.map(item => ({ productId: item.productId, quantity: item.quantity, salePrice: item.salePrice, discount: item.discount, discountType: item.discountType })),
+    };
+    await tx.insert(saleEditHistoryTable).values({
+      saleId: id, userId, editType: "edit", oldValues: JSON.stringify(oldSnapshot),
+      newValues: JSON.stringify(newSnapshot), editedByName: actor?.username ?? "Unknown",
+      reason: String(reason ?? "").trim() || null,
+    });
+    return { sale: updatedSale } as const;
+  }).catch(error => ({ error: error instanceof Error ? error.message : "Sale update failed", status: 400 } as const));
+
+  if (!("sale" in outcome)) { res.status(outcome.status).json({ error: outcome.error }); return; }
+  const savedSale = outcome.sale;
+  if (!savedSale) { res.status(500).json({ error: "Sale update failed" }); return; }
+  const itemRows = await db.select({ item: productSaleItemsTable, productName: productsTable.name, productCode: productsTable.code })
+    .from(productSaleItemsTable).leftJoin(productsTable, eq(productSaleItemsTable.productId, productsTable.id))
+    .where(eq(productSaleItemsTable.saleId, id));
+  res.json({
+    ...formatSale(savedSale),
+    items: itemRows.map(row => formatSaleItem({ ...row.item, productName: row.productName ?? undefined, productCode: row.productCode ?? undefined })),
+  });
 });
 
 // Product returns
@@ -319,49 +542,29 @@ router.post("/inventory/product-returns", requireAuth, async (req, res): Promise
     return;
   }
 
-  const [sale] = await db.select().from(productSalesTable)
-    .where(and(
-      eq(productSalesTable.id, parsedSaleId),
-      eq(productSalesTable.userId, userId),
-      isNull(productSalesTable.deletedAt),
-    ));
-  if (!sale || (sale.status ?? "active") !== "active") {
-    res.status(404).json({ error: "Original sale is not available for return" });
-    return;
-  }
-
-  const [saleItem] = await db.select().from(productSaleItemsTable)
-    .where(and(eq(productSaleItemsTable.saleId, parsedSaleId), eq(productSaleItemsTable.productId, parsedProductId)));
-  if (!saleItem) {
-    res.status(400).json({ error: "This product was not part of the selected sale" });
-    return;
-  }
-
-  const soldQty = parseFloat(saleItem.quantity as string);
-
-  // Refund the proportional amount actually paid for this line, including any
-  // sale-level discount. The browser never controls this value.
-  const allSaleItems = await db.select({ lineTotal: productSaleItemsTable.lineTotal })
-    .from(productSaleItemsTable)
-    .where(eq(productSaleItemsTable.saleId, parsedSaleId));
-  const saleLinesTotal = allSaleItems.reduce((total, item) => total + parseFloat(item.lineTotal as string), 0);
-  const itemLineTotal = parseFloat(saleItem.lineTotal as string);
-  const saleAmount = parseFloat(sale.totalAmount as string);
-  const paidLineTotal = saleLinesTotal > 0 ? itemLineTotal * (saleAmount / saleLinesTotal) : itemLineTotal;
-  const returnAmount = Math.round((qty * (paidLineTotal / soldQty)) * 100) / 100;
-  const purchaseCost = qty * parseFloat(saleItem.purchasePrice as string);
-  const profitReversed = Math.round((returnAmount - purchaseCost) * 100) / 100;
-
   const outcome = await db.transaction(async (tx) => {
     // Lock the sale while calculating remaining quantity so concurrent returns
     // cannot both refund the same sold units.
     await tx.execute(sql`SELECT id FROM product_sales WHERE id = ${parsedSaleId} AND user_id = ${userId} FOR UPDATE`);
-    const [lockedSale] = await tx.select({ status: productSalesTable.status, deletedAt: productSalesTable.deletedAt })
+    const [lockedSale] = await tx.select()
       .from(productSalesTable)
       .where(and(eq(productSalesTable.id, parsedSaleId), eq(productSalesTable.userId, userId)));
     if (!lockedSale || lockedSale.deletedAt || (lockedSale.status ?? "active") !== "active") {
       return { error: "Original sale is not available for return" };
     }
+    const [lockedSaleItem] = await tx.select().from(productSaleItemsTable)
+      .where(and(eq(productSaleItemsTable.saleId, parsedSaleId), eq(productSaleItemsTable.productId, parsedProductId)));
+    if (!lockedSaleItem) return { error: "This product was not part of the selected sale" };
+    const soldQty = parseFloat(lockedSaleItem.quantity as string);
+    const lockedSaleItems = await tx.select({ lineTotal: productSaleItemsTable.lineTotal })
+      .from(productSaleItemsTable).where(eq(productSaleItemsTable.saleId, parsedSaleId));
+    const saleLinesTotal = lockedSaleItems.reduce((total, item) => total + parseFloat(item.lineTotal as string), 0);
+    const itemLineTotal = parseFloat(lockedSaleItem.lineTotal as string);
+    const saleAmount = parseFloat(lockedSale.totalAmount as string);
+    const paidLineTotal = saleLinesTotal > 0 ? itemLineTotal * (saleAmount / saleLinesTotal) : itemLineTotal;
+    const returnAmount = Math.round((qty * (paidLineTotal / soldQty)) * 100) / 100;
+    const purchaseCost = qty * parseFloat(lockedSaleItem.purchasePrice as string);
+    const profitReversed = Math.round((returnAmount - purchaseCost) * 100) / 100;
 
     const previousReturns = await tx.select({ quantity: productReturnsTable.quantity })
       .from(productReturnsTable)
@@ -470,6 +673,18 @@ router.post("/inventory/product-returns/bulk", requireAuth, async (req, res): Pr
     for (const candidate of candidates) {
       if (remainingToReturn <= 0) break;
       await tx.execute(sql`SELECT id FROM product_sales WHERE id = ${candidate.sale.id} AND user_id = ${userId} FOR UPDATE`);
+      const [lockedCandidate] = await tx
+        .select({ sale: productSalesTable, item: productSaleItemsTable })
+        .from(productSalesTable)
+        .innerJoin(productSaleItemsTable, eq(productSaleItemsTable.saleId, productSalesTable.id))
+        .where(and(
+          eq(productSalesTable.id, candidate.sale.id),
+          eq(productSalesTable.userId, userId),
+          eq(productSaleItemsTable.productId, parsedProductId),
+          isNull(productSalesTable.deletedAt),
+          or(isNull(productSalesTable.status), eq(productSalesTable.status, "active")),
+        ));
+      if (!lockedCandidate) continue;
 
       const previousReturns = await tx.select({ quantity: productReturnsTable.quantity })
         .from(productReturnsTable)
@@ -479,7 +694,7 @@ router.post("/inventory/product-returns/bulk", requireAuth, async (req, res): Pr
           eq(productReturnsTable.productId, parsedProductId),
         ));
       const alreadyReturned = previousReturns.reduce((total, item) => total + parseFloat(item.quantity as string), 0);
-      const soldQty = parseFloat(candidate.item.quantity as string);
+      const soldQty = parseFloat(lockedCandidate.item.quantity as string);
       const availableQty = Math.max(0, soldQty - alreadyReturned);
       if (availableQty <= 0) continue;
 
@@ -487,13 +702,13 @@ router.post("/inventory/product-returns/bulk", requireAuth, async (req, res): Pr
         .from(productSaleItemsTable)
         .where(eq(productSaleItemsTable.saleId, candidate.sale.id));
       const saleLinesTotal = allSaleItems.reduce((total, item) => total + parseFloat(item.lineTotal as string), 0);
-      const itemLineTotal = parseFloat(candidate.item.lineTotal as string);
-      const saleAmount = parseFloat(candidate.sale.totalAmount as string);
+      const itemLineTotal = parseFloat(lockedCandidate.item.lineTotal as string);
+      const saleAmount = parseFloat(lockedCandidate.sale.totalAmount as string);
       const paidLineTotal = saleLinesTotal > 0 ? itemLineTotal * (saleAmount / saleLinesTotal) : itemLineTotal;
       const refundPerUnit = soldQty > 0 ? paidLineTotal / soldQty : 0;
       const allocatedQty = Math.min(remainingToReturn, availableQty);
       const returnAmount = Math.round(allocatedQty * refundPerUnit * 100) / 100;
-      const purchaseCost = allocatedQty * parseFloat(candidate.item.purchasePrice as string);
+      const purchaseCost = allocatedQty * parseFloat(lockedCandidate.item.purchasePrice as string);
       const profitReversed = Math.round((returnAmount - purchaseCost) * 100) / 100;
 
       allocations.push({ saleId: candidate.sale.id, quantity: allocatedQty, returnAmount, profitReversed });
@@ -558,11 +773,19 @@ router.post("/inventory/product-returns/bulk", requireAuth, async (req, res): Pr
 // Product returns list
 router.get("/inventory/product-returns", requireAuth, async (req, res): Promise<void> => {
   const userId = req.session!.userId!;
+  const { dateFrom, dateTo } = req.query;
+  const conditions: any[] = [eq(productReturnsTable.userId, userId)];
+  if (dateFrom) conditions.push(gte(productReturnsTable.returnDate, new Date(dateFrom as string)));
+  if (dateTo) {
+    const to = new Date(dateTo as string);
+    to.setHours(23, 59, 59, 999);
+    conditions.push(lte(productReturnsTable.returnDate, to));
+  }
   const returns = await db
     .select({ ret: productReturnsTable, productName: productsTable.name, productCode: productsTable.code })
     .from(productReturnsTable)
     .leftJoin(productsTable, eq(productReturnsTable.productId, productsTable.id))
-    .where(eq(productReturnsTable.userId, userId))
+    .where(and(...conditions))
     .orderBy(desc(productReturnsTable.returnDate));
 
   res.json(returns.map(r => ({
@@ -661,7 +884,7 @@ router.get("/inventory/product-sales/report/summary", requireAuth, async (req, r
 router.post("/inventory/product-sales/:id/cancel", requireAuth, async (req, res): Promise<void> => {
   const userId = req.session!.userId!;
   const id = parseInt(req.params.id);
-  const { reason } = req.body;
+  const { reason } = req.body ?? {};
 
   const [actor] = await db.select({ username: usersTable.username, role: usersTable.role })
     .from(usersTable).where(eq(usersTable.id, userId));
@@ -680,6 +903,14 @@ router.post("/inventory/product-sales/:id/cancel", requireAuth, async (req, res)
       .limit(1);
     if (existingReturn.length > 0) {
       return { error: "A sale with product returns cannot be cancelled", status: 400 };
+    }
+    if (sale.creditId) {
+      await tx.execute(sql`SELECT id FROM credits WHERE id = ${sale.creditId} AND user_id = ${userId} FOR UPDATE`);
+      const [linkedCredit] = await tx.select({ status: creditsTable.status }).from(creditsTable)
+        .where(and(eq(creditsTable.id, sale.creditId), eq(creditsTable.userId, userId)));
+      if (linkedCredit?.status === "paid") {
+        return { error: "A settled credit sale cannot be cancelled", status: 400 };
+      }
     }
 
     const items = await tx.select().from(productSaleItemsTable)
